@@ -1,0 +1,36 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Node
+node_modules/
+dist/
+frontend/dist/
+
+# Runtime uploads
+src/PMP.Api/uploads/
+
+# Env / local config
+*.local.json
+.env
+.env.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# SQLite local databases
+*.db
+*.sqlite
+*.sqlite3
+src/PMP.Api/appsettings.json
+
+docker-compose.yml
