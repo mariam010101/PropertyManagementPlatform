@@ -12,9 +12,11 @@ captured in the Confluence **PMP** space. This MVP covers four modules:
 
 ## Tech Stack
 
-- **Backend:** ASP.NET Core 9 (C#), EF Core 9, Npgsql
+- **Backend:** ASP.NET Core 9 (C#), EF Core 9, SQLite
 - **Frontend:** React 18 + TypeScript + Vite
-- **Database:** PostgreSQL (schema-per-module: `auth`, `property`, `resident`, `maintenance`)
+- **Database:** SQLite — one shared file `pmp.db`; the four module DbContexts
+  (`auth`, `property`, `resident`, `maintenance`) own distinct tables in it
+  (modular-monolith boundary preserved at the app/service layer)
 - **Auth:** ASP.NET Core Identity + JWT (access + refresh tokens), RBAC roles
   (Administrator, PropertyManager, Resident, Technician)
 
@@ -25,23 +27,21 @@ PropertyManagement.sln
 ├── src/
 │   ├── PMP.Api/                 # Web API host (controllers, composition root, seeding)
 │   ├── PMP.Shared/              # Shared kernel (base entities, Result, roles/policies)
-│   ├── PMP.Modules.Auth/        # Identity, JWT, refresh tokens, audit events  (schema: auth)
-│   ├── PMP.Modules.Property/    # Property/Building/Unit + scoped CRUD      (schema: property)
-│   ├── PMP.Modules.Resident/    # Profiles + effective-dated unit links     (schema: resident)
-│   └── PMP.Modules.Maintenance/ # Requests, state machine, auto-close job   (schema: maintenance)
+│   ├── PMP.Modules.Auth/        # Identity, JWT, refresh tokens, audit events  (shared SQLite, auth tables)
+│   ├── PMP.Modules.Property/    # Property/Building/Unit + scoped CRUD      (shared SQLite, property tables)
+│   ├── PMP.Modules.Resident/    # Profiles + effective-dated unit links     (shared SQLite, resident tables)
+│   └── PMP.Modules.Maintenance/ # Requests, state machine, auto-close job   (shared SQLite, maintenance tables)
 ├── frontend/                    # React + TS + Vite SPA
 └── tests/PMP.Tests/             # xUnit tests
 ```
 
 ## Running Locally
 
-### 1. Start PostgreSQL
+### 1. Database
 
-```bash
-docker compose up -d
-```
-
-(Or use any local PostgreSQL with credentials matching `appsettings.json`.)
+No database server is required. SQLite is file-based: on first run the API creates
+`pmp.db` (next to `appsettings.json`) and applies the EF Core migrations, creating
+all module tables in the single file.
 
 ### 2. Run the API
 
@@ -49,9 +49,10 @@ docker compose up -d
 dotnet run --project src/PMP.Api
 ```
 
-On startup the API applies the EF Core migrations (schema-per-module) and seeds
-demo data (roles, admin/manager/technician/resident users, a sample property with
-units, and a resident assignment). Swagger is available at `/swagger`.
+On startup the API applies the EF Core migrations (one per module DbContext,
+all targeting the shared `pmp.db`) and seeds demo data (roles,
+admin/manager/technician/resident users, a sample property with units, and a
+resident assignment). Swagger is available at `/swagger`.
 
 Seed logins:
 

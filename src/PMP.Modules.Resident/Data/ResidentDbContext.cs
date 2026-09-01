@@ -4,7 +4,8 @@ using PMP.Modules.Resident.Entities;
 namespace PMP.Modules.Resident.Data;
 
 /// <summary>
-/// Resident persistence. Owns the <c>resident</c> schema.
+/// Resident persistence. Tables live in the shared SQLite database; module
+/// ownership is by table name + separate DbContext (modular-monolith boundary).
 /// </summary>
 public class ResidentDbContext : DbContext
 {
@@ -20,8 +21,6 @@ public class ResidentDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-
-        builder.HasDefaultSchema("resident");
 
         builder.Entity<ResidentProfile>(e =>
         {

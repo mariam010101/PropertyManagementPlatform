@@ -48,12 +48,19 @@ public class AutoCloseHostedService : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<MaintenanceDbContext>();
 
         var cutoff = DateTimeOffset.UtcNow.Subtract(GracePeriod);
-        var expired = await db.MaintenanceRequests
+
+        // SQLite stores DateTimeOffset as TEXT and cannot translate DateTimeOffset
+        // comparisons to SQL. Keep DateTimeOffset, but apply the timestamp filter
+        // in memory after narrowing the result set with translatable predicates.
+        var candidates = await db.MaintenanceRequests
             .Where(r => r.Status == MaintenanceStatus.Completed &&
                         r.CompletedAt != null &&
-                        r.CompletedAt < cutoff &&
                         !r.IsDeleted)
             .ToListAsync(cancellationToken);
+
+        var expired = candidates
+            .Where(r => r.CompletedAt!.Value < cutoff)
+            .ToList();
 
         if (expired.Count == 0)
         {

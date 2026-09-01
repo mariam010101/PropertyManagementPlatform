@@ -4,7 +4,8 @@ using PMP.Modules.Property.Entities;
 namespace PMP.Modules.Property.Data;
 
 /// <summary>
-/// Property persistence. Owns the <c>property</c> schema.
+/// Property persistence. Tables live in the shared SQLite database; module
+/// ownership is by table name + separate DbContext (modular-monolith boundary).
 /// </summary>
 public class PropertyDbContext : DbContext
 {
@@ -22,8 +23,6 @@ public class PropertyDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-
-        builder.HasDefaultSchema("property");
 
         builder.Entity<ManagedProperty>(e =>
         {

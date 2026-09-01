@@ -48,7 +48,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Idempotent migrations + seed (roles, admin, sample data). Non-fatal: the app
-// still starts so the user can bring up PostgreSQL and retry.
+// still starts so the user can bring up SQLite and retry.
 using (var scope = app.Services.CreateScope())
 {
     var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();

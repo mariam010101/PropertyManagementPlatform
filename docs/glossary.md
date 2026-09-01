@@ -76,11 +76,12 @@ _Avoid_: delete, purge
 ## Architecture terms
 
 **Modular monolith**:
-A single deployable application internally organized into modules, with boundaries enforced at the database level (one schema per module).
+A single deployable application internally organized into modules. Boundaries are enforced at the application/service layer and by one DbContext per module; the database is a single shared SQLite file (see ADR-0011).
 _Avoid_: microservice, big ball of mud
 
 **Schema**:
-The per-module database namespace: `auth`, `property`, `resident`, `maintenance`.
+Database namespace separating modules. Removed with the SQLite migration — the four module DbContexts (`auth`, `property`, `resident`, `maintenance`) now own distinct tables in the shared `pmp.db`.
+_Avoid_: database namespace
 
 **Composition root**:
 The API startup/DI point where cross-module wiring happens (e.g., registration calls Auth to create the user and Resident to create the profile).

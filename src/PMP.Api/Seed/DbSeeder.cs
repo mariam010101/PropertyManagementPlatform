@@ -54,7 +54,7 @@ public class DbSeeder
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Database seeding skipped. Is PostgreSQL running at the configured connection string? Start it and restart the API.");
+            _logger.LogWarning(ex, "Database seeding skipped. Ensure the SQLite connection string is valid (Data Source=pmp.db) and restart the API.");
         }
     }
 

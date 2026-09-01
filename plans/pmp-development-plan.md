@@ -22,7 +22,8 @@ Mobile Platform Access (FR-MOBILE), and full RBAC administration (FR-RBAC).
 - **Frontend:** React (web SPA)
 - **Architecture:** Modular Monolith with module boundaries enforced at the database
   level (schema-per-module), single deployable
-- **Database:** PostgreSQL with EF Core/Npgsql (schema-per-module)
+- **Database:** SQLite (single file `pmp.db`; the 4 module DbContexts own distinct
+  tables — see ADR-0011; supersedes the PostgreSQL/schema-per-module choice in ADR-0002)
 - **Auth:** ASP.NET Core Identity + JWT bearer tokens with refresh tokens
 - **RBAC:** Identity roles + policy-based authorization
   - Roles: Administrator, Property Manager, Resident, Technician

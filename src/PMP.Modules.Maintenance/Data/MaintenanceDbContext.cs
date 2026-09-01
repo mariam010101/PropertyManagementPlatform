@@ -5,7 +5,8 @@ using PMP.Modules.Maintenance.Enums;
 namespace PMP.Modules.Maintenance.Data;
 
 /// <summary>
-/// Maintenance persistence. Owns the <c>maintenance</c> schema.
+/// Maintenance persistence. Tables live in the shared SQLite database; module
+/// ownership is by table name + separate DbContext (modular-monolith boundary).
 /// </summary>
 public class MaintenanceDbContext : DbContext
 {
@@ -23,8 +24,6 @@ public class MaintenanceDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-
-        builder.HasDefaultSchema("maintenance");
 
         builder.Entity<MaintenanceRequest>(e =>
         {

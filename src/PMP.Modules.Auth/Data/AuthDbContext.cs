@@ -6,8 +6,8 @@ using PMP.Modules.Auth.Entities;
 namespace PMP.Modules.Auth.Data;
 
 /// <summary>
-/// Identity + auth persistence. Owns the <c>auth</c> schema within the
-/// modular-monolith database (schema-per-module boundary).
+/// Identity + auth persistence. Tables live in the shared SQLite database;
+/// module ownership is by table name + separate DbContext (modular-monolith boundary).
 /// </summary>
 public class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 {
@@ -23,8 +23,6 @@ public class AuthDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Gui
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-
-        builder.HasDefaultSchema("auth");
 
         builder.Entity<ApplicationUser>(e =>
         {

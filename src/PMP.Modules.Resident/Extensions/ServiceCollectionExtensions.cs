@@ -14,7 +14,7 @@ public static class ServiceCollectionExtensions
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' was not configured.");
 
-        services.AddDbContext<ResidentDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContext<ResidentDbContext>(options => options.UseSqlite(connectionString));
 
         services.AddScoped<IResidentService, ResidentService>();
         services.AddScoped<UnitOccupancyProvider>();
