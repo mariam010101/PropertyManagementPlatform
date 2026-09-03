@@ -1,0 +1,370 @@
+<mxfile host="app.diagrams.net" agent="PMP-Architecture" version="24.0.0">
+  <diagram id="pmp-component-diagram" name="PMP - UML Component Diagram">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3600" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Property Management Platform - UML Component Diagram" style="text;html=1;fontSize=26;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="60" y="10" width="2400" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Current implemented system - ASP.NET Core 9 modular monolith + React 19 SPA + SQLite. Solid arrows = call / runtime use; dashed arrows = project reference / compile-time dependency." style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;color=#666666;" vertex="1" parent="1">
+          <mxGeometry x="60" y="52" width="3300" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fe-box" value="1. FRONTEND - React 19 SPA&#10;(Vite dev :5173)" style="swimlane;startSize=44;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="350" height="980" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-spa" value="React SPA core&#10;(react-router v7, App.tsx)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="65" y="175" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-auth" value="Auth UI&#10;Login / Register + AuthContext (JWT store)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="65" y="270" width="300" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-guard" value="ProtectedRoute&#10;(role-based route guard)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="65" y="375" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-pages" value="Feature pages&#10;Dashboard, Properties, Residents, Maintenance,&#10;Users and Roles, Payments, Leases,&#10;Communication, Bookings, Security" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="65" y="460" width="300" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-client" value="API client (api/client.ts)&#10;fetch REST /api + JWT + token refresh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="65" y="620" width="300" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fe-note" value="Frontend calls PMP.Api only&#10;via the Vite dev proxy (/api -> :5070)." style="text;html=1;fontSize=10;fontStyle=2;color=#666666;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="65" y="740" width="300" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api-box" value="2. PMP.Api - ASP.NET Core 9 host&#10;(composition root, :5070, launch http)" style="swimlane;startSize=44;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;verticalAlign=top;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="460" y="100" width="3120" height="360" as="geometry" />
+        </mxCell>
+        <mxCell id="api-comp" value="Program.cs - composition root&#10;registers all 9 modules (Add*Module DI), CORS for :5173, JWT auth middleware, Swagger, DbSeeder (migrate + seed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="490" y="165" width="3060" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="api-infra" value="Cross-module wiring (composition root):&#10;IUnitOccupancyProvider -> Resident.UnitOccupancyProvider&#10;INotificationService -> Communication.PersistedNotificationService" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D6B656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="490" y="240" width="3060" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="api-authz" value="Authentication and authorization infrastructure&#10;ASP.NET Core Identity + JWT Bearer + policies (AppPolicies) + CurrentUser claims resolver" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="490" y="315" width="3060" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c-lbl" value="Controllers (HTTP endpoints, [Authorize] policies)" style="text;html=1;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="460" y="415" width="3120" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c0" value="AuthController&#10;/api/auth" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="470" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" value="PropertiesController&#10;/api/properties" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="812" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="ResidentsController&#10;/api/residents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1154" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="MaintenanceController&#10;/api/maintenance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1496" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="CommunicationController&#10;/api/communication" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1838" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" value="LeasesController&#10;/api/leases" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2180" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" value="PaymentsController&#10;/api/payments" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2522" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="BookingsController&#10;/api/bookings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2864" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="SecurityController&#10;/api/security" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="3206" y="445" width="300" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="mod-title" value="3. DOMAIN MODULES - modular monolith (PMP.Modules.*)&#10;Each module = own DbContext + services + EF migrations; single deployable via PMP.Api" style="text;html=1;fontSize=13;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="460" y="530" width="3120" height="34" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m0" value="PMP.Modules.Auth&#10;(authentication)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="470" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m0s1" value="AuthService&#10;register / login / logout / reset" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="485" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m0s2" value="TokenService&#10;JWT access + refresh tokens" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="485" y="712" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m0db" value="AuthDbContext&#10;Identity users, refresh tokens, auth events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="485" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="PMP.Modules.Property&#10;(properties)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="812" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m1s1" value="PropertyService&#10;properties / buildings / units" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="827" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m1s2" value="IUnitOccupancyProvider&#10;(contract, consumed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D79B00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="827" y="712" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m1db" value="PropertyDbContext&#10;properties, buildings, units" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="827" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m2" value="PMP.Modules.Resident&#10;(residents)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1154" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m2s1" value="ResidentService&#10;profiles / unit assignment / occupancy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1169" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m2s2" value="UnitOccupancyProvider&#10;(implements IUnitOccupancyProvider)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D79B00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1169" y="712" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m2db" value="ResidentDbContext&#10;profiles, resident-units" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1169" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m3" value="PMP.Modules.Maintenance&#10;(maintenance)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1496" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m3s1" value="MaintenanceService&#10;requests + status state machine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1511" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m3s2" value="INotificationService&#10;(contract, used)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1511" y="712" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m3bg" value="AutoCloseHostedService&#10;(background: 7-day auto-close)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1511" y="790" width="270" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="m3db" value="MaintenanceDbContext&#10;requests, attachments, history" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1511" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m4" value="PMP.Modules.Communication&#10;(notifications)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1838" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m4s1" value="CommunicationService&#10;notifications + announcements" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1853" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m4s2" value="PersistedNotificationService&#10;(implements INotificationService)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B85450;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1853" y="712" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m4db" value="CommunicationDbContext&#10;notifications, announcements" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1853" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m5" value="PMP.Modules.Lease&#10;(leases)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="2180" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m5s1" value="LeaseService&#10;agreements + version history + docs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2195" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m5bg" value="LeaseLifecycleHostedService&#10;(background: expiry / notice sweep)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2195" y="790" width="270" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="m5db" value="LeaseDbContext&#10;agreements, documents, history" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2195" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m6" value="PMP.Modules.Payment&#10;(payments + financial reports)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="2522" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m6s1" value="PaymentService&#10;invoices / transactions / confirmations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2537" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m6s2" value="Financial reports + reconciliation&#10;(Accountant role)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2537" y="712" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m6bg" value="PaymentDueDateHostedService&#10;(background: due-date reminders)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2537" y="790" width="270" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="m6db" value="PaymentDbContext&#10;invoices, payment transactions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2537" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m7" value="PMP.Modules.Booking&#10;(facility booking)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="2864" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m7s1" value="BookingService&#10;facilities / availability / overlaps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2879" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m7db" value="BookingDbContext&#10;facilities, facility bookings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="2879" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m8" value="PMP.Modules.Security&#10;(visitors + access)" style="swimlane;startSize=40;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontStyle=1;verticalAlign=top;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="3206" y="580" width="300" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="m8s1" value="SecurityService&#10;visitors, access grants / revocations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="3221" y="640" width="270" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="m8db" value="SecurityDbContext&#10;visitors, access grants" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="3221" y="862" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="shared-box" value="4. PMP.Shared - common / cross-cutting&#10;AppRoles - AppPolicies - Result / Result&#60;T&#62; - BaseEntity - DomainException" style="swimlane;startSize=44;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontStyle=1;verticalAlign=top;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1170" width="1400" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="db-box" value="5. DATABASE - SQLite file: pmp.db (single shared file, Foreign Keys=ON)&#10;EF Core (Microsoft.EntityFrameworkCore.Sqlite 9.0.0) - one DbContext per module, UseSqlite(Data Source=pmp.db)" style="swimlane;startSize=44;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontStyle=1;verticalAlign=top;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1900" y="1170" width="1600" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-fe-api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#000000;strokeWidth=2;fontSize=11;fontStyle=1;" edge="1" parent="1" source="fe-client" target="api-comp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fe-api-lbl" value="HTTP REST /api (JSON) + JWT Bearer&#10;(Vite proxy :5173 -> :5070)" style="edgeLabel;html=1;align=center;verticalAlign=bottom;fontSize=11;fontStyle=1;" vertex="1" connectable="0" parent="e-fe-api">
+          <mxGeometry x="0.1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e-fe-spa-client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="fe-pages" target="fe-client">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-c0m0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c0" target="m0">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-c1m1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c1" target="m1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-c2m2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c2" target="m2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-c3m3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c3" target="m3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-c4m4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c4" target="m4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-c5m5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c5" target="m5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-c6m6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c6" target="m6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-c7m7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c7" target="m7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-c8m8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="c8" target="m8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-m0s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m0s1" target="m0db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-m1s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m1s1" target="m1db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-m2s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m2s1" target="m2db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-m3s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m3s1" target="m3db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-m4s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m4s1" target="m4db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-m5s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m5s1" target="m5db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-m6s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m6s1" target="m6db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-m7s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m7s1" target="m7db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-m8s" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#82B366;strokeWidth=1.2;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="m8s1" target="m8db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-d0" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m0db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d1" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m1db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d2" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m2db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d3" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m3db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d4" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m4db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d5" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m5db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d6" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m6db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d7" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m7db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d8" style="edgeStyle=straightEdge;html=1;endArrow=block;endFill=1;strokeColor=#9673A6;strokeWidth=1.5;" edge="1" parent="1" source="m8db" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d-lbl" value="EF Core (UseSqlite per DbContext)" style="edgeLabel;html=1;align=center;fontSize=11;fontStyle=2;" vertex="1" connectable="0" parent="e-d0">
+          <mxGeometry x="-0.3" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e-seed-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#B85450;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="api-comp" target="db-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-seed-lbl" value="DbSeeder: migrate + seed on startup" style="edgeLabel;html=1;align=center;fontSize=10;fontStyle=2;" vertex="1" connectable="0" parent="e-seed-db">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e-sh0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#D6B656;strokeWidth=1.5;dashed=1;exitX=0.5;exitY=1;entryX=0.35;entryY=0;" edge="1" parent="1" source="m0" target="shared-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sh1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#D6B656;strokeWidth=1.5;dashed=1;exitX=0.5;exitY=1;entryX=0.55;entryY=0;" edge="1" parent="1" source="m1" target="shared-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sh2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#D6B656;strokeWidth=1.5;dashed=1;exitX=0.5;exitY=1;entryX=0.75;entryY=0;" edge="1" parent="1" source="m2" target="shared-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sh3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#D6B656;strokeWidth=1.5;dashed=1;exitX=0.5;exitY=1;entryX=0.95;entryY=0;" edge="1" parent="1" source="m3" target="shared-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sh-lbl" value="&#60;&#60;uses&#62;&#62; all 9 modules reference PMP.Shared (result type, roles, policies, base entity)" style="edgeLabel;html=1;align=center;fontSize=10;fontStyle=2;" vertex="1" connectable="0" parent="e-sh0">
+          <mxGeometry x="-0.5" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e-api-shared" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#D6B656;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="api-box" target="shared-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-notify" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#B85450;strokeWidth=1.5;" edge="1" parent="1" source="m3s2" target="m4s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-notify-lbl" value="INotificationService implemented by Communication (persisted notifications)" style="edgeLabel;html=1;align=center;fontSize=10;fontStyle=2;" vertex="1" connectable="0" parent="e-notify">
+          <mxGeometry x="-0.5" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e-occ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#D79B00;strokeWidth=1.5;" edge="1" parent="1" source="m2s2" target="m1s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-occ-lbl" value="provides occupancy (IUnitOccupancyProvider)" style="edgeLabel;html=1;align=center;fontSize=10;fontStyle=2;" vertex="1" connectable="0" parent="e-occ">
+          <mxGeometry x="-0.4" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e-le-comm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#D6B656;strokeWidth=1.3;dashed=1;exitX=1;exitY=0.4;entryX=0;entryY=0.4;" edge="1" parent="1" source="m4" target="m3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-lbl-deps" value="Other project-reference dependencies (module reads data of the owning module):&#10;Maintenance -> Property / Resident / Auth; Communication -> Resident / Maintenance; Lease -> Property / Resident / Communication;&#10;Payment -> Lease / Communication / Property / Resident; Booking -> Resident / Communication / Property; Security -> Auth / Property / Booking.&#10;Every module has PMP.Api referencing it and references PMP.Shared." style="text;html=1;fontSize=10;fontStyle=2;align=left;verticalAlign=top;color=#7a5230;" vertex="1" parent="1">
+          <mxGeometry x="470" y="1065" width="3000" height="90" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
