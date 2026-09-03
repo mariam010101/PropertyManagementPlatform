@@ -123,6 +123,42 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Admin lists all user accounts with their roles (FR-RBAC-001, ROLE-US-001..004).</summary>
+    [HttpGet("users")]
+    [Authorize(Policy = AppPolicies.AdministratorOnly)]
+    public async Task<IActionResult> GetUsers([FromQuery] string? search)
+    {
+        var result = await _auth.GetUsersAsync(search);
+        return Ok(result);
+    }
+
+    /// <summary>Admin sets a user's roles (assign/remove).</summary>
+    [HttpPut("users/{userId:guid}/roles")]
+    [Authorize(Policy = AppPolicies.AdministratorOnly)]
+    public async Task<IActionResult> SetUserRoles(Guid userId, [FromBody] SetUserRolesRequest request)
+    {
+        var result = await _auth.SetUserRolesAsync(_currentUser.Id, userId, request);
+        return result.ToActionResult();
+    }
+
+    /// <summary>Admin deactivates a user account (soft delete; blocks sign-in, preserves history).</summary>
+    [HttpPost("users/{userId:guid}/deactivate")]
+    [Authorize(Policy = AppPolicies.AdministratorOnly)]
+    public async Task<IActionResult> DeactivateUser(Guid userId)
+    {
+        var result = await _auth.DeactivateUserAsync(_currentUser.Id, userId);
+        return result.ToActionResult();
+    }
+
+    /// <summary>Admin reactivates a user account.</summary>
+    [HttpPost("users/{userId:guid}/activate")]
+    [Authorize(Policy = AppPolicies.AdministratorOnly)]
+    public async Task<IActionResult> ActivateUser(Guid userId)
+    {
+        var result = await _auth.ActivateUserAsync(_currentUser.Id, userId);
+        return result.ToActionResult();
+    }
+
     [HttpGet("me")]
     [Authorize]
     public IActionResult Me()

@@ -9,8 +9,9 @@ public static class AppRoles
     public const string PropertyManager = "PropertyManager";
     public const string Resident = "Resident";
     public const string Technician = "Technician";
+    public const string Accountant = "Accountant";
 
-    public static readonly string[] All = [Administrator, PropertyManager, Resident, Technician];
+    public static readonly string[] All = [Administrator, PropertyManager, Resident, Technician, Accountant];
 
     public static bool IsKnown(string role) => All.Contains(role);
 }

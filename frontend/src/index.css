@@ -190,6 +190,24 @@ button.danger {
   font-size: 14px;
 }
 
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 14px 0 0;
+  font-weight: normal;
+  font-size: 14px;
+}
+
+.check input {
+  width: auto;
+  margin: 0;
+}
+
+.roles {
+  margin-top: 8px;
+}
+
 .modal {
   position: fixed;
   inset: 0;

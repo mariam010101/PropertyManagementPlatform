@@ -50,6 +50,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   })
 
   if (response.status === 401) {
+    // Only attempt refresh/redirect for authenticated calls. Anonymous 401s
+    // (e.g., an expired session check while already on /login) must NOT hard
+    // reload the page — that would loop forever.
+    if (!token) {
+      throw new ApiError('Unauthorized', 401)
+    }
     const refreshed = await tryRefresh()
     if (refreshed) {
       return request<T>(path, options)
@@ -152,6 +158,16 @@ export interface ResidentProfileDto {
   currentMoveInDate?: string
 }
 
+export interface UserAdminDto {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  isActive: boolean
+  roles: string[]
+  createdAt: string
+}
+
 export type MaintenanceStatus = 'Submitted' | 'Assigned' | 'InProgress' | 'Completed' | 'Confirmed' | 'Closed' | 'Cancelled'
 export type MaintenancePriority = 'Low' | 'Medium' | 'High' | 'Urgent'
 
@@ -183,6 +199,165 @@ export interface MaintenanceRequestDto {
   }[]
 }
 
+// ---- post-MVP module types (BR-005..011) ----
+
+export interface NotificationDto {
+  id: string
+  title: string
+  body: string
+  eventType: string
+  channel: string
+  deliveryStatus: string
+  isRead: boolean
+  readAt?: string
+  createdAt: string
+}
+
+export interface AnnouncementDto {
+  id: string
+  propertyId: string
+  propertyName: string
+  title: string
+  body: string
+  publishedByUserId: string
+  publishedAt: string
+}
+
+export interface LeaseDto {
+  id: string
+  residentUserId: string
+  residentName: string
+  unitId: string
+  unitNumber: string
+  propertyId: string
+  propertyName: string
+  startDate: string
+  endDate: string
+  monthlyRent: number
+  status: 'Active' | 'Expired' | 'Terminated' | 'Cancelled'
+  currentVersion: number
+  terminatedAt?: string
+  documentCount: number
+}
+
+export interface LeaseDocumentDto {
+  id: string
+  leaseAgreementId: string
+  fileName: string
+  contentType: string
+  uploadedByUserId: string
+  version: number
+  uploadedAt: string
+}
+
+export interface InvoiceDto {
+  id: string
+  leaseAgreementId: string
+  residentUserId: string
+  residentName: string
+  unitId: string
+  unitNumber: string
+  propertyId: string
+  propertyName: string
+  periodStart: string
+  periodEnd: string
+  dueDate: string
+  amount: number
+  paidAmount: number
+  outstandingBalance: number
+  status: string
+  paidAt?: string
+}
+
+export interface PaymentTransactionDto {
+  id: string
+  transactionReference: string
+  invoiceId: string
+  residentUserId: string
+  amount: number
+  status: string
+  method: string
+  paidAt?: string
+  confirmationNumber?: string
+}
+
+export interface BalanceDto {
+  totalOutstanding: number
+  openInvoiceCount: number
+  invoices: InvoiceDto[]
+}
+
+export interface FinancialReportDto {
+  totalCollected: number
+  totalOutstanding: number
+  completedPayments: number
+  failedPayments: number
+  openInvoices: number
+  paidInvoices: number
+  overdueTotal: number
+}
+
+export interface FacilityDto {
+  id: string
+  propertyId: string
+  propertyName: string
+  name: string
+  description: string
+  isActive: boolean
+  openMinutes: number
+  closeMinutes: number
+  slotMinutes: number
+  cancellationWindowHours: number
+}
+
+export interface FacilityBookingDto {
+  id: string
+  facilityId: string
+  facilityName: string
+  bookedByUserId: string
+  bookedByName: string
+  startAt: string
+  endAt: string
+  status: 'Reserved' | 'Cancelled' | 'Completed'
+  cancelledAt?: string
+  cancellationReason?: string
+  bookingReference: string
+}
+
+export interface VisitorDto {
+  id: string
+  propertyId: string
+  propertyName: string
+  firstName: string
+  lastName: string
+  fullName: string
+  phoneNumber?: string
+  hostUserId?: string
+  unitNumber?: string
+  status: string
+  registeredByUserId: string
+  checkInAt?: string
+  checkOutAt?: string
+}
+
+export interface AccessGrantDto {
+  id: string
+  propertyId: string
+  propertyName: string
+  targetType: string
+  targetId: string
+  targetName: string
+  subjectType: string
+  subjectUserId?: string
+  subjectName: string
+  visitorId?: string
+  grantedByUserId: string
+  grantedAt: string
+  expiresAt?: string
+  revokedAt?: string
+  isActive: boolean
+}
+
 // ---- API ----
 
 export const api = {
@@ -204,6 +379,16 @@ export const api = {
     request<{ id: string; firstName: string; lastName: string; email: string; role: string }[]>(
       `/auth/staff${role ? `?role=${encodeURIComponent(role)}` : ''}`,
     ),
+
+  // admin user & role management (FR-RBAC-001..006)
+  getUsers: (search?: string) =>
+    request<UserAdminDto[]>(`/auth/users${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  setUserRoles: (userId: string, roles: string[]) =>
+    request<void>(`/auth/users/${userId}/roles`, { method: 'PUT', body: { roles } }),
+  deactivateUser: (userId: string) =>
+    request<void>(`/auth/users/${userId}/deactivate`, { method: 'POST' }),
+  activateUser: (userId: string) =>
+    request<void>(`/auth/users/${userId}/activate`, { method: 'POST' }),
 
   // properties
   getProperties: () => request<PropertyDto[]>('/properties'),
@@ -235,4 +420,62 @@ export const api = {
     request<MaintenanceRequestDto>(`/maintenance/${id}/status`, { method: 'POST', body: { status, comment } }),
   confirmMaintenance: (id: string) =>
     request<MaintenanceRequestDto>(`/maintenance/${id}/confirm`, { method: 'POST', body: {} }),
+
+  // communication & notifications (BR-007)
+  getNotifications: (unreadOnly = false) =>
+    request<NotificationDto[]>(`/communication/notifications?unreadOnly=${unreadOnly}`),
+  getUnreadCount: () => request<{ count: number }>('/communication/notifications/unread-count'),
+  markNotificationRead: (id: string) =>
+    request<void>(`/communication/notifications/${id}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => request<void>('/communication/notifications/read-all', { method: 'POST' }),
+  getMyAnnouncements: () => request<AnnouncementDto[]>('/communication/announcements/mine'),
+  getAnnouncements: (propertyId?: string) =>
+    request<AnnouncementDto[]>(`/communication/announcements${propertyId ? `?propertyId=${propertyId}` : ''}`),
+  publishAnnouncement: (body: { propertyId: string; title: string; body: string }) =>
+    request<AnnouncementDto>('/communication/announcements', { method: 'POST', body }),
+
+  // leases (BR-006)
+  getLeases: () => request<LeaseDto[]>('/leases'),
+  getLease: (id: string) => request<LeaseDto & { documents: LeaseDocumentDto[]; history: unknown[] }>(`/leases/${id}`),
+  createLease: (body: { residentUserId: string; unitId: string; startDate: string; endDate: string; monthlyRent: number }) =>
+    request<LeaseDto>('/leases', { method: 'POST', body }),
+  terminateLease: (id: string, comment?: string) =>
+    request<void>(`/leases/${id}/terminate`, { method: 'POST', body: { comment } }),
+
+  // payments (BR-005) + accountant reports (BR-011)
+  getBalance: () => request<BalanceDto>('/payments/balance'),
+  getInvoices: (status?: string) =>
+    request<InvoiceDto[]>(`/payments/invoices${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  createInvoice: (body: { leaseAgreementId: string; periodStart: string; periodEnd: string; dueDate: string; amount: number }) =>
+    request<InvoiceDto>('/payments/invoices', { method: 'POST', body }),
+  payInvoice: (invoiceId: string, amount: number) =>
+    request<PaymentTransactionDto>(`/payments/invoices/${invoiceId}/pay`, { method: 'POST', body: { amount, method: 'Card' } }),
+  getPaymentHistory: () => request<PaymentTransactionDto[]>('/payments/history'),
+  getFinancialReport: () => request<FinancialReportDto>('/payments/report'),
+  getReconciliation: () =>
+    request<{ expectedFromInvoices: number; collected: number; difference: number; isBalanced: boolean }>(
+      '/payments/reconciliation',
+    ),
+
+  // facility booking (BR-009)
+  getFacilities: (propertyId?: string) =>
+    request<FacilityDto[]>(`/bookings/facilities${propertyId ? `?propertyId=${propertyId}` : ''}`),
+  createFacility: (body: { propertyId: string; name: string; description?: string; openMinutes: number; closeMinutes: number; slotMinutes: number }) =>
+    request<FacilityDto>('/bookings/facilities', { method: 'POST', body }),
+  bookFacility: (facilityId: string, startAt: string, endAt: string) =>
+    request<FacilityBookingDto>('/bookings', { method: 'POST', body: { facilityId, startAt, endAt } }),
+  getBookings: (mineOnly = false) => request<FacilityBookingDto[]>(`/bookings?mineOnly=${mineOnly}`),
+  cancelBooking: (bookingId: string, reason?: string) =>
+    request<void>(`/bookings/${bookingId}/cancel`, { method: 'POST', body: { reason } }),
+
+  // physical security & visitors (BR-010)
+  getVisitors: () => request<VisitorDto[]>('/security/visitors'),
+  registerVisitor: (body: { firstName: string; lastName: string; propertyId: string; phoneNumber?: string; unitNumber?: string }) =>
+    request<VisitorDto>('/security/visitors', { method: 'POST', body }),
+  checkInVisitor: (id: string) => request<VisitorDto>(`/security/visitors/${id}/check-in`, { method: 'POST', body: {} }),
+  checkOutVisitor: (id: string) => request<VisitorDto>(`/security/visitors/${id}/check-out`, { method: 'POST' }),
+  getAccessLog: () => request<AccessGrantDto[]>('/security/access'),
+  grantAccess: (body: { propertyId: string; targetType: string; targetId: string; subjectType: string; subjectUserId?: string; visitorId?: string; expiresAt?: string }) =>
+    request<AccessGrantDto>('/security/access', { method: 'POST', body }),
+  revokeAccess: (id: string) => request<void>(`/security/access/${id}/revoke`, { method: 'POST' }),
 }

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, clearTokens, getRefreshToken, setTokens, type RegisterRequest } from '../api/client'
+import { api, clearTokens, getAccessToken, getRefreshToken, setTokens, type RegisterRequest } from '../api/client'
 
 export interface User {
   id: string
@@ -25,10 +25,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     ;(async () => {
+      // No token (e.g., on the login/register pages): do not call /auth/me.
+      // A 401 there would previously trigger a hard redirect to /login,
+      // causing an endless page-refresh loop.
+      if (!getAccessToken()) {
+        setLoading(false)
+        return
+      }
       try {
         const me = await api.me()
         setUser({ id: me.userId, email: '', firstName: '', lastName: '', roles: me.roles })
       } catch {
+        clearTokens()
         setUser(null)
       } finally {
         setLoading(false)

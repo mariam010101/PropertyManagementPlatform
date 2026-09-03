@@ -2,12 +2,22 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PMP.Modules.Auth.Data;
 using PMP.Modules.Auth.Entities;
+using PMP.Modules.Booking.Data;
+using PMP.Modules.Booking.Entities;
+using PMP.Modules.Communication.Data;
+using PMP.Modules.Lease.Data;
+using PMP.Modules.Lease.Entities;
+using PMP.Modules.Lease.Enums;
 using PMP.Modules.Maintenance.Data;
+using PMP.Modules.Payment.Data;
+using PMP.Modules.Payment.Entities;
+using PMP.Modules.Payment.Enums;
 using PMP.Modules.Property.Data;
 using PMP.Modules.Property.Entities;
 using PMP.Modules.Property.Enums;
 using PMP.Modules.Resident.Data;
 using PMP.Modules.Resident.Entities;
+using PMP.Modules.Security.Data;
 using PMP.Shared.Common;
 
 namespace PMP.Api.Seed;
@@ -37,11 +47,21 @@ public class DbSeeder
             var propertyDb = scope.ServiceProvider.GetRequiredService<PropertyDbContext>();
             var residentDb = scope.ServiceProvider.GetRequiredService<ResidentDbContext>();
             var maintenanceDb = scope.ServiceProvider.GetRequiredService<MaintenanceDbContext>();
+            var communicationDb = scope.ServiceProvider.GetRequiredService<CommunicationDbContext>();
+            var leaseDb = scope.ServiceProvider.GetRequiredService<LeaseDbContext>();
+            var paymentDb = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+            var bookingDb = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+            var securityDb = scope.ServiceProvider.GetRequiredService<SecurityDbContext>();
 
             await authDb.Database.MigrateAsync();
             await propertyDb.Database.MigrateAsync();
             await residentDb.Database.MigrateAsync();
             await maintenanceDb.Database.MigrateAsync();
+            await communicationDb.Database.MigrateAsync();
+            await leaseDb.Database.MigrateAsync();
+            await paymentDb.Database.MigrateAsync();
+            await bookingDb.Database.MigrateAsync();
+            await securityDb.Database.MigrateAsync();
 
             await SeedRolesAsync(scope);
 
@@ -49,8 +69,10 @@ public class DbSeeder
             var manager = await EnsureUserAsync(scope, "manager@pmp.com", "Manager123!", AppRoles.PropertyManager, "Anna", "Manager");
             var technician = await EnsureUserAsync(scope, "tech@pmp.com", "Tech123!", AppRoles.Technician, "Tom", "Tech");
             var resident = await EnsureUserAsync(scope, "resident@pmp.com", "Resident123!", AppRoles.Resident, "Rita", "Resident");
+            var accountant = await EnsureUserAsync(scope, "accountant@pmp.com", "Accountant123!", AppRoles.Accountant, "Alice", "Accountant");
 
             await SeedSamplePropertyAsync(scope, manager.Id, resident.Id);
+            await SeedSamplePostMvpAsync(scope, manager.Id, resident.Id);
         }
         catch (Exception ex)
         {
@@ -185,6 +207,106 @@ public class DbSeeder
                 MoveInDate = DateTimeOffset.UtcNow.AddMonths(-3),
             });
             await residentDb.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Seeds demo data for the post-MVP modules (lease, invoice/facility, booking
+    /// facility, welcome notifications) only when the demo property was created.
+    /// Idempotent: skips if data already exists.
+    /// </summary>
+    private async Task SeedSamplePostMvpAsync(IServiceScope scope, Guid managerUserId, Guid residentUserId)
+    {
+        var propertyDb = scope.ServiceProvider.GetRequiredService<PropertyDbContext>();
+        var residentDb = scope.ServiceProvider.GetRequiredService<ResidentDbContext>();
+        var leaseDb = scope.ServiceProvider.GetRequiredService<LeaseDbContext>();
+        var paymentDb = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+        var bookingDb = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+        var communicationDb = scope.ServiceProvider.GetRequiredService<CommunicationDbContext>();
+
+        var property = await propertyDb.Properties.AsNoTracking().FirstOrDefaultAsync();
+        var unit = await propertyDb.ResidentialUnits.AsNoTracking().FirstOrDefaultAsync(u => u.UnitNumber == "A-101");
+        var profile = await residentDb.ResidentProfiles.AsNoTracking().FirstOrDefaultAsync(r => r.UserId == residentUserId);
+
+        if (property is null || unit is null || profile is null)
+        {
+            return;
+        }
+
+        // --- Lease (BR-006) ---
+        var hasLease = await leaseDb.LeaseAgreements.AnyAsync(l => l.ResidentUserId == residentUserId);
+        if (!hasLease)
+        {
+            var lease = new LeaseAgreement
+            {
+                ResidentUserId = residentUserId,
+                UnitId = unit.Id,
+                StartDate = DateTimeOffset.UtcNow.AddMonths(-3),
+                EndDate = DateTimeOffset.UtcNow.AddMonths(9),
+                MonthlyRent = 1200,
+                Status = LeaseStatus.Active,
+                CurrentVersion = 1,
+            };
+            leaseDb.LeaseAgreements.Add(lease);
+            await leaseDb.SaveChangesAsync();
+        }
+
+        // --- Invoice (BR-005) ---
+        var activeLease = await leaseDb.LeaseAgreements.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.ResidentUserId == residentUserId && l.Status == LeaseStatus.Active);
+        var hasInvoice = await paymentDb.Invoices.AnyAsync(i => i.ResidentUserId == residentUserId && i.Status != "Voided");
+        if (activeLease is not null && !hasInvoice)
+        {
+            var now = DateTimeOffset.UtcNow;
+            paymentDb.Invoices.Add(new Invoice
+            {
+                LeaseAgreementId = activeLease.Id,
+                ResidentUserId = residentUserId,
+                UnitId = unit.Id,
+                PropertyId = property.Id,
+                PeriodStart = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset),
+                PeriodEnd = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset).AddMonths(1),
+                DueDate = new DateTimeOffset(now.Year, now.Month, 10, 0, 0, 0, now.Offset),
+                Amount = activeLease.MonthlyRent,
+                Status = "Open",
+            });
+            await paymentDb.SaveChangesAsync();
+        }
+
+        // --- Facility (BR-009) ---
+        var hasFacility = await bookingDb.Facilities.AnyAsync(f => f.PropertyId == property.Id);
+        if (!hasFacility)
+        {
+            bookingDb.Facilities.Add(new Facility
+            {
+                PropertyId = property.Id,
+                Name = "Community Gym",
+                Description = "Demo facility seeded for development (gym).",
+                IsActive = true,
+                OpenMinutes = 8 * 60,
+                CloseMinutes = 22 * 60,
+                SlotMinutes = 60,
+                CancellationWindowHours = 2,
+            });
+            await bookingDb.SaveChangesAsync();
+        }
+
+        // --- Welcome notification (BR-007) ---
+        var hasWelcome = await communicationDb.Notifications.AnyAsync(n =>
+            n.RecipientUserId == residentUserId && n.EventType == "Welcome");
+        if (!hasWelcome)
+        {
+            communicationDb.Notifications.Add(new PMP.Modules.Communication.Entities.Notification
+            {
+                RecipientUserId = residentUserId,
+                Title = "Welcome to PMP",
+                Body = "Your account is ready. You can view your lease, pay rent, book facilities, and track maintenance.",
+                EventType = "Welcome",
+                Channel = PMP.Modules.Communication.Enums.NotificationChannel.InApp,
+                DeliveryStatus = PMP.Modules.Communication.Enums.NotificationDeliveryStatus.Sent,
+                IsRead = false,
+            });
+            await communicationDb.SaveChangesAsync();
         }
     }
 }

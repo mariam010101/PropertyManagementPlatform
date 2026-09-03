@@ -118,3 +118,25 @@ public record UserSummaryDto
 
     public string Role { get; init; } = string.Empty;
 }
+
+public record UserAdminDto
+{
+    public Guid Id { get; init; }
+
+    public string FirstName { get; init; } = string.Empty;
+
+    public string LastName { get; init; } = string.Empty;
+
+    public string Email { get; init; } = string.Empty;
+
+    public bool IsActive { get; init; }
+
+    public IReadOnlyList<string> Roles { get; init; } = Array.Empty<string>();
+
+    public DateTimeOffset CreatedAt { get; init; }
+}
+
+public record SetUserRolesRequest
+{
+    public IReadOnlyList<string> Roles { get; init; } = Array.Empty<string>();
+}

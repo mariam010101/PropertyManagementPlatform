@@ -11,4 +11,10 @@ public static class AppPolicies
     public const string ManagerOrAdmin = "ManagerOrAdmin";
     public const string Authenticated = "Authenticated";
     public const string ResidentOrStaff = "ResidentOrStaff";
+
+    /// <summary>Financial data: Accountant, PropertyManager, or Administrator (BR-011).</summary>
+    public const string Financial = "Financial";
+
+    /// <summary>Accountant + Administrator read access to financial records (FR-ACCT-001).</summary>
+    public const string AccountantOrAdmin = "AccountantOrAdmin";
 }

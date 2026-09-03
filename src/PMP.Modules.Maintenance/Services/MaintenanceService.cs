@@ -147,7 +147,9 @@ public class MaintenanceService : IMaintenanceService
             query = query.Where(r => r.UnitId == unitId.Value);
         }
 
-        var ids = await query.OrderByDescending(r => r.CreatedAt).Select(r => r.Id).ToListAsync();
+        // SQLite cannot ORDER BY DateTimeOffset (CreatedAt), so order on the client side.
+        var rows = await query.Select(r => new { r.Id, r.CreatedAt }).ToListAsync();
+        var ids = rows.OrderByDescending(x => x.CreatedAt).Select(x => x.Id).ToList();
         var result = new List<MaintenanceRequestDto>();
         foreach (var id in ids)
         {
@@ -498,33 +500,37 @@ public class MaintenanceService : IMaintenanceService
             .Select(u => u.UnitNumber)
             .SingleOrDefaultAsync();
 
-        var attachments = await _db.MaintenanceAttachments
-            .AsNoTracking()
-            .Where(a => a.MaintenanceRequestId == requestId)
-            .OrderBy(a => a.CreatedAt)
-            .Select(a => new MaintenanceAttachmentDto
-            {
-                Id = a.Id,
-                FileName = a.FileName,
-                ContentType = a.ContentType,
-                UploadedAt = a.CreatedAt,
-            })
-            .ToListAsync();
+        // SQLite cannot ORDER BY DateTimeOffset (CreatedAt/UploadedAt/ChangedAt),
+        // so fetch without ordering in SQL and order on the client side.
+        var attachments = (await _db.MaintenanceAttachments
+                .AsNoTracking()
+                .Where(a => a.MaintenanceRequestId == requestId)
+                .Select(a => new MaintenanceAttachmentDto
+                {
+                    Id = a.Id,
+                    FileName = a.FileName,
+                    ContentType = a.ContentType,
+                    UploadedAt = a.CreatedAt,
+                })
+                .ToListAsync())
+            .OrderBy(a => a.UploadedAt)
+            .ToList();
 
-        var history = await _db.MaintenanceHistory
-            .AsNoTracking()
-            .Where(h => h.MaintenanceRequestId == requestId)
-            .OrderBy(h => h.CreatedAt)
-            .Select(h => new MaintenanceHistoryDto
-            {
-                Id = h.Id,
-                FromStatus = h.FromStatus,
-                ToStatus = h.ToStatus,
-                Comment = h.Comment,
-                ChangedByUserId = h.ChangedByUserId,
-                ChangedAt = h.CreatedAt,
-            })
-            .ToListAsync();
+        var history = (await _db.MaintenanceHistory
+                .AsNoTracking()
+                .Where(h => h.MaintenanceRequestId == requestId)
+                .Select(h => new MaintenanceHistoryDto
+                {
+                    Id = h.Id,
+                    FromStatus = h.FromStatus,
+                    ToStatus = h.ToStatus,
+                    Comment = h.Comment,
+                    ChangedByUserId = h.ChangedByUserId,
+                    ChangedAt = h.CreatedAt,
+                })
+                .ToListAsync())
+            .OrderBy(h => h.ChangedAt)
+            .ToList();
 
         return new MaintenanceRequestDto
         {

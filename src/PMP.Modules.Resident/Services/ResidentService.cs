@@ -296,14 +296,18 @@ public class ResidentService : IResidentService
         var list = residents.ToList();
 
         // Current unit id per resident (active association, latest move-in).
-        var currentAssociations = await _db.ResidentUnits
+        // SQLite cannot ORDER BY DateTimeOffset, so narrow in SQL and order in memory.
+        var activeAssociations = await _db.ResidentUnits
             .AsNoTracking()
             .Where(ru => list.Select(r => r.Id).Contains(ru.ResidentProfileId) &&
                          ru.MoveOutDate == null &&
                          !ru.IsDeleted)
+            .ToListAsync();
+
+        var currentAssociations = activeAssociations
             .GroupBy(ru => ru.ResidentProfileId)
             .Select(g => g.OrderByDescending(ru => ru.MoveInDate).First())
-            .ToListAsync();
+            .ToList();
 
         var unitIds = currentAssociations.Select(a => a.UnitId).Distinct().ToList();
         var unitNumbers = await _propertyDb.ResidentialUnits

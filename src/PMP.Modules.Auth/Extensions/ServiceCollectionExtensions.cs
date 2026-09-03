@@ -78,6 +78,8 @@ public static class ServiceCollectionExtensions
             options.AddPolicy(AppPolicies.ManagerOrAdmin, p => p.RequireRole(AppRoles.PropertyManager, AppRoles.Administrator));
             options.AddPolicy(AppPolicies.ResidentOrStaff, p => p.RequireRole(AppRoles.Resident, AppRoles.PropertyManager, AppRoles.Technician, AppRoles.Administrator));
             options.AddPolicy(AppPolicies.Authenticated, p => p.RequireAuthenticatedUser());
+            options.AddPolicy(AppPolicies.Financial, p => p.RequireRole(AppRoles.Accountant, AppRoles.PropertyManager, AppRoles.Administrator));
+            options.AddPolicy(AppPolicies.AccountantOrAdmin, p => p.RequireRole(AppRoles.Accountant, AppRoles.Administrator));
         });
 
         services.AddScoped<ITokenService, TokenService>();

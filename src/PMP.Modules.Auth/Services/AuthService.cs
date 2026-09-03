@@ -32,6 +32,14 @@ public interface IAuthService
     Task<IReadOnlyList<string>> GetUserRolesAsync(Guid userId);
 
     Task<IReadOnlyList<UserSummaryDto>> GetStaffAsync(string? role);
+
+    Task<IReadOnlyList<UserAdminDto>> GetUsersAsync(string? search);
+
+    Task<Result> SetUserRolesAsync(Guid actorId, Guid userId, SetUserRolesRequest request);
+
+    Task<Result> DeactivateUserAsync(Guid actorId, Guid userId);
+
+    Task<Result> ActivateUserAsync(Guid actorId, Guid userId);
 }
 
 public class AuthService : IAuthService
@@ -118,7 +126,9 @@ public class AuthService : IAuthService
             return Result.Fail<AuthResponse>("This account has been deactivated.");
         }
 
-        var result = await _signInManager.PasswordSignInAsync(user, request.Password, false, lockoutOnFailure: true);
+        // JWT-only setup: validate credentials/lockout WITHOUT performing a cookie
+        // sign-in (PasswordSignInAsync requires a registered cookie handler).
+        var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
         if (result.IsLockedOut)
         {
             await RecordEventAsync(user.Id, user.Email, "LoginLockedOut", ip);
@@ -327,6 +337,170 @@ public class AuthService : IAuthService
         }
 
         return result;
+    }
+
+    public async Task<IReadOnlyList<UserAdminDto>> GetUsersAsync(string? search)
+    {
+        var query = _userManager.Users.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(u => (u.Email != null && u.Email.ToLower().Contains(term)) ||
+                                     u.FirstName.ToLower().Contains(term) ||
+                                     u.LastName.ToLower().Contains(term));
+        }
+
+        var users = await query
+            .OrderBy(u => u.LastName).ThenBy(u => u.FirstName)
+            .ToListAsync();
+
+        var roleNameById = await _db.Roles.AsNoTracking().ToDictionaryAsync(r => r.Id, r => r.Name ?? string.Empty);
+        var groups = await _db.UserRoles.AsNoTracking()
+            .Where(ur => users.Select(u => u.Id).Contains(ur.UserId))
+            .GroupBy(ur => ur.UserId)
+            .ToListAsync();
+
+        var roleByUser = new Dictionary<Guid, List<string>>();
+        foreach (var group in groups)
+        {
+            roleByUser[group.Key] = group
+                .Select(ur => roleNameById.GetValueOrDefault(ur.RoleId) ?? string.Empty)
+                .Where(n => n.Length > 0)
+                .ToList();
+        }
+
+        return users.Select(u => new UserAdminDto
+        {
+            Id = u.Id,
+            FirstName = u.FirstName,
+            LastName = u.LastName,
+            Email = u.Email ?? string.Empty,
+            IsActive = u.IsActive,
+            Roles = roleByUser.TryGetValue(u.Id, out var roles) ? roles : Array.Empty<string>(),
+            CreatedAt = u.CreatedAt,
+        }).ToList();
+    }
+
+    public async Task<Result> SetUserRolesAsync(Guid actorId, Guid userId, SetUserRolesRequest request)
+    {
+        var target = await _userManager.FindByIdAsync(userId.ToString());
+        if (target is null)
+        {
+            return Result.Fail("User not found.");
+        }
+
+        var desired = request.Roles.Distinct().ToList();
+        var invalid = desired.Where(r => !AppRoles.All.Contains(r)).ToList();
+        if (invalid.Count > 0)
+        {
+            return Result.Fail($"Invalid role(s): {string.Join(", ", invalid)}. Allowed: {string.Join(", ", AppRoles.All)}.");
+        }
+
+        var current = (await _userManager.GetRolesAsync(target)).ToList();
+
+        // Removing Administrator: never allow an admin to strip their own role,
+        // and always keep at least one active Administrator.
+        if (current.Contains(AppRoles.Administrator) && !desired.Contains(AppRoles.Administrator))
+        {
+            if (userId == actorId)
+            {
+                return Result.Fail("You cannot remove the Administrator role from your own account.");
+            }
+
+            var otherActiveAdmins = await CountActiveAdministratorsAsync(target.Id);
+            if (otherActiveAdmins == 0)
+            {
+                return Result.Fail("At least one active Administrator must remain.");
+            }
+        }
+
+        foreach (var role in desired.Except(current))
+        {
+            await _userManager.AddToRoleAsync(target, role);
+        }
+
+        foreach (var role in current.Except(desired))
+        {
+            await _userManager.RemoveFromRoleAsync(target, role);
+        }
+
+        target.UpdatedAt = DateTimeOffset.UtcNow;
+        await _userManager.UpdateAsync(target);
+
+        await RecordEventAsync(target.Id, target.Email, "RolesUpdated", null);
+        return Result.Ok();
+    }
+
+    public async Task<Result> DeactivateUserAsync(Guid actorId, Guid userId)
+    {
+        if (userId == actorId)
+        {
+            return Result.Fail("You cannot deactivate your own account.");
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return Result.Fail("User not found.");
+        }
+
+        if (!user.IsActive)
+        {
+            return Result.Ok();
+        }
+
+        user.IsActive = false;
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        // Revoke all active refresh tokens so a deactivated account cannot mint new access tokens.
+        var activeTokens = await _db.RefreshTokens.Where(t => t.UserId == userId && t.RevokedAt == null).ToListAsync();
+        foreach (var token in activeTokens)
+        {
+            token.RevokedAt = DateTimeOffset.UtcNow;
+        }
+
+        await _db.SaveChangesAsync();
+        await RecordEventAsync(user.Id, user.Email, "AccountDeactivated", null);
+        return Result.Ok();
+    }
+
+    public async Task<Result> ActivateUserAsync(Guid actorId, Guid userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return Result.Fail("User not found.");
+        }
+
+        if (user.IsActive)
+        {
+            return Result.Ok();
+        }
+
+        user.IsActive = true;
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        await RecordEventAsync(user.Id, user.Email, "AccountActivated", null);
+        return Result.Ok();
+    }
+
+    private async Task<int> CountActiveAdministratorsAsync(Guid excludeUserId)
+    {
+        var adminRole = await _roleManager.FindByNameAsync(AppRoles.Administrator);
+        if (adminRole is null)
+        {
+            return 0;
+        }
+
+        var adminUserIds = await _db.UserRoles
+            .Where(ur => ur.RoleId == adminRole.Id)
+            .Select(ur => ur.UserId)
+            .ToListAsync();
+
+        return await _userManager.Users
+            .CountAsync(u => u.IsActive && adminUserIds.Contains(u.Id) && u.Id != excludeUserId);
     }
 
     private async Task<AuthResponse> BuildAuthResponseAsync(ApplicationUser user, string? emailConfirmationToken = null)

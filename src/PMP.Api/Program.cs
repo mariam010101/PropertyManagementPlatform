@@ -3,12 +3,18 @@ using PMP.Api.Infrastructure;
 using PMP.Api.Seed;
 using PMP.Api.Services;
 using PMP.Modules.Auth.Extensions;
+using PMP.Modules.Booking.Extensions;
+using PMP.Modules.Communication.Extensions;
+using PMP.Modules.Communication.Services;
+using PMP.Modules.Lease.Extensions;
 using PMP.Modules.Maintenance.Abstractions;
 using PMP.Modules.Maintenance.Extensions;
+using PMP.Modules.Payment.Extensions;
 using PMP.Modules.Property.Abstractions;
 using PMP.Modules.Property.Extensions;
 using PMP.Modules.Resident.Abstractions;
 using PMP.Modules.Resident.Extensions;
+using PMP.Modules.Security.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,12 +36,18 @@ builder.Services.AddAuthModule(builder.Configuration);
 builder.Services.AddPropertyModule(builder.Configuration);
 builder.Services.AddResidentModule(builder.Configuration);
 builder.Services.AddMaintenanceModule(builder.Configuration);
+builder.Services.AddCommunicationModule(builder.Configuration);
+builder.Services.AddLeaseModule(builder.Configuration);
+builder.Services.AddPaymentModule(builder.Configuration);
+builder.Services.AddBookingModule(builder.Configuration);
+builder.Services.AddSecurityModule(builder.Configuration);
 
 // Cross-module composition at the root:
 // - Property module depends on an occupancy provider owned by the Resident module.
-// - Maintenance notifications are stubbed here until the Communication module ships.
+// - Maintenance notifications now persist through the Communication module
+//   (replacing the MVP logging stub) so FR-MNT-005 / BR-007 are satisfied.
 builder.Services.AddScoped<IUnitOccupancyProvider>(sp => sp.GetRequiredService<UnitOccupancyProvider>());
-builder.Services.AddScoped<INotificationService, LoggingNotificationService>();
+builder.Services.AddScoped<INotificationService, PersistedNotificationService>();
 
 builder.Services.AddCors(options =>
 {

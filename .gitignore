@@ -36,3 +36,6 @@ Thumbs.db
 src/PMP.Api/appsettings.json
 
 docker-compose.yml
+
+# Local runtime logs
+*.log
