@@ -190,7 +190,10 @@ public class PaymentService : IPaymentService
             }
         }
 
-        var rows = await query.OrderByDescending(p => p.CreatedAt).ToListAsync();
+        // SQLite cannot ORDER BY DateTimeOffset in SQL: materialize then order in memory.
+        var rows = (await query.ToListAsync())
+            .OrderByDescending(p => p.CreatedAt)
+            .ToList();
         return rows.Select(p => new PaymentTransactionDto
         {
             Id = p.Id,

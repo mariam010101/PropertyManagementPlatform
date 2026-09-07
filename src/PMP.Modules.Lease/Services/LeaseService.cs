@@ -286,10 +286,12 @@ public class LeaseService : ILeaseService
             return Result.Fail<IReadOnlyList<LeaseDocumentDto>>("Lease not found or you do not have access to it.");
         }
 
-        var docs = await _db.LeaseDocuments.AsNoTracking()
-            .Where(d => d.LeaseAgreementId == leaseId)
+        // SQLite cannot ORDER BY DateTimeOffset in SQL: materialize then order in memory.
+        var docs = (await _db.LeaseDocuments.AsNoTracking()
+                .Where(d => d.LeaseAgreementId == leaseId)
+                .ToListAsync())
             .OrderByDescending(d => d.CreatedAt)
-            .ToListAsync();
+            .ToList();
 
         var result = docs.Select(d => new LeaseDocumentDto
         {
