@@ -1,15 +1,16 @@
 # PMP Implementation Progress
 
-Overall: 61%
+Overall: 63%
 MVP: 87%
 
 Completed: 1
-In Progress: 15
+Verified: 2
+In Progress: 13
 Not Started: 9
 Blocked: 1
 Gaps: 3
 
-Last Updated: 2026-09-10
+Last Updated: 2026-09-11
 
 Next Recommended Task: IMP-040
 
@@ -25,10 +26,11 @@ approved ADRs ([`docs/adr/`](docs/adr/)), the functional requirements audit
 Status vocabulary (§7 of the operating rules): `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `IMPLEMENTED`,
 `NEEDS_REVIEW`, `VERIFIED`, `COMPLETE`, `GAP`, `DEFERRED`.
 
-Dashboard counts: `Completed`/`In Progress`/`Not Started`/`Blocked`/`Gaps` count **tasks** by status
-(Gap status = `IMP-030`, `IMP-031`, `IMP-033`). Separately,
-[`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md) documents **14** gaps
-(GAP-001..GAP-014) — some gaps span multiple tasks.
+Dashboard counts: `Completed`/`Verified`/`In Progress`/`Not Started`/`Blocked`/`Gaps` count **tasks** by status
+(`Completed` = `COMPLETE`; `Verified` = `VERIFIED`, i.e. implemented + tested but with a documented
+open item; Gap status = `IMP-030`, `IMP-031`, `IMP-033`). Separately,
+[`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md) documents **22** gaps
+(GAP-001..GAP-022) — some gaps span multiple tasks.
 
 > Correction (2026-09-10): the first published revision reported `Gaps: 4`, which double-counted one task.
 > The verified count is **3** tasks with status `GAP` (1 + 15 + 9 + 1 + 3 = 29 tasks).
@@ -43,12 +45,12 @@ acceptance criterion and is therefore reported below 100%.
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Solution builds | ✅ | `dotnet test PropertyManagement.sln` exit code 0 |
-| Test suite | ✅ 21 passed / 0 failed (9 unit + 12 API integration), 7 test files | [`tests/PMP.Tests`](tests/PMP.Tests) |
+| Test suite | ✅ 47 passed / 0 failed (24 unit + 23 API integration), 9 test files | [`tests/PMP.Tests`](tests/PMP.Tests) |
 | MVP API integration harness | ✅ real Kestrel host + throwaway SQLite, driven over HTTP (no test-only hooks in the API) | [`PmpApiFixture.cs`](tests/PMP.Tests/Integration/PmpApiFixture.cs:1), [`MvpEndToEndApiTests.cs`](tests/PMP.Tests/Integration/MvpEndToEndApiTests.cs:1) |
 | Modules wired in host | ✅ 9 modules + shared kernel | [`Program.cs`](src/PMP.Api/Program.cs:35) |
 | Cross-module adapters | ✅ `IUnitOccupancyProvider`→`UnitOccupancyProvider`, `INotificationService`→`PersistedNotificationService` | [`Program.cs`](src/PMP.Api/Program.cs:49) |
 | API surface | ✅ Controllers for Auth, Properties, Residents, Maintenance, Communication, Leases, Payments, Bookings, Security | [`Controllers/`](src/PMP.Api/Controllers) |
-| EF Core migrations | ✅ 10 initial migrations (Auth, Property, Resident, Maintenance, Communication, Lease, Payment, Booking, Security) | [`src/`](src) |
+| EF Core migrations | ✅ 11 migrations (Auth, Property, Resident, Maintenance, Communication, Lease, Payment + `PaymentRequestsAndObligations`, Booking, Security) | [`src/`](src) |
 | Background services | ✅ 3 hosted services (maintenance auto-close, lease lifecycle, payment due dates) | [`AutoCloseHostedService.cs`](src/PMP.Modules.Maintenance/Background/AutoCloseHostedService.cs:15), [`LeaseLifecycleHostedService.cs`](src/PMP.Modules.Lease/Background/LeaseLifecycleHostedService.cs:12), [`PaymentDueDateHostedService.cs`](src/PMP.Modules.Payment/Background/PaymentDueDateHostedService.cs:12) |
 | Email confirmation enforced | ✅ `RequireConfirmedEmail = true`, checked at login | [`ServiceCollectionExtensions.cs`](src/PMP.Modules.Auth/Extensions/ServiceCollectionExtensions.cs:49), [`AuthService.cs`](src/PMP.Modules.Auth/Services/AuthService.cs:144) |
 | Email **transport** (SMTP/provider) | ❌ none (notifications record channel only) | no `Smtp`/`MailKit`/`SendGrid`/`IEmailSender` anywhere in [`src/`](src) |
@@ -81,9 +83,9 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | Group | Weight | Earned | % |
 | --- | --- | --- | --- |
 | MVP (IMP-001..007) | 60 | 52.3 | **87%** |
-| Post-MVP + remaining FRs (IMP-020..035) | 55 | 37.1 | 67% |
-| Cross-cutting: tests, CI, DevOps, security, docs (IMP-040..052) | 38 | 3.3 | 9% |
-| **Total** | **153** | **92.7** | **61%** |
+| Post-MVP + remaining FRs (IMP-020..035) | 55 | 39.7 | 72% |
+| Cross-cutting: tests, CI, DevOps, security, docs (IMP-040..052) | 38 | 4.5 | 12% |
+| **Total** | **153** | **96.5** | **63%** |
 
 ### Module / layer progress
 
@@ -93,7 +95,7 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | Property (BR-003) | IMP-003 | 90% | no manager-role validation on create; duplicate-unit rule covered by unit test only |
 | Resident (BR-002) | IMP-004 | 85% | occupancy-history retention not covered by a test |
 | Maintenance (BR-004) | IMP-005 | 95% | 7-day auto-close job and attachment path untested |
-| Payment + Accounting (BR-005, BR-011) | IMP-020, IMP-021 | 71% | simulated payment provider, no tests |
+| Payment + Accounting (BR-005, BR-011) | IMP-020, IMP-021 | 90% | real payment-provider integration (GAP-012); no frontend tests (IMP-041) |
 | Lease (BR-006) | IMP-022 | 70% | BRULE-LEASE-001 invariant, document storage hardening, no tests |
 | Communication (BR-007) | IMP-023 | 70% | no email transport, no tests |
 | Booking (BR-009) | IMP-024 | 70% | no tests, no BRULE page published |
@@ -102,7 +104,7 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | Backend (MVP backend tasks IMP-001..006) | IMP-001..006 | 90% | unit-level coverage for lockout/auto-close; hardening |
 | Frontend (web) | IMP-007, IMP-026, IMP-041 | 75% | no frontend test tooling |
 | Database/API | migrations + endpoint surface | 80% | MVP surface verified end-to-end; post-MVP endpoints unverified |
-| Testing | IMP-006, IMP-040, IMP-041 | 35% | MVP API layer covered; no post-MVP module tests, no frontend tests |
+| Testing | IMP-006, IMP-040, IMP-041 | 40% | Payment service + API covered; Resident/Lease/Communication/Booking/Security module tests and frontend tests still missing |
 | Security (NFR/hardening) | IMP-031, IMP-034, IMP-044 | 0% | no review performed, no hardening tasks started |
 | DevOps | IMP-042, IMP-043 | 0% | no pipeline, no packaging/deployment assets |
 
@@ -144,8 +146,8 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 
 | ID | Task | Module | Pri | Deps | REQ | ADR | Status | % | W |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| IMP-020 | Payment: invoices, balances, pay, confirmations, history, due-date reminders | Payment | P2 | IMP-004, IMP-022 | FR-PAY-001..007 | 0012 | IN_PROGRESS | 70 | 10 |
-| IMP-021 | Financial reporting, reconciliation, Accountant scoped access | Payment | P2 | IMP-020 | FR-ACCT-001..004 | 0004, 0012 | NEEDS_REVIEW | 75 | 6 |
+| IMP-020 | Payment requests/orders: lifecycle, per-user obligations, dashboard + notification bell, pay/confirm, overdue sweep, cancel, failed attempts | Payment | P2 | IMP-004, IMP-022 | FR-PAY-001..007 | 0012 | VERIFIED | 90 | 10 |
+| IMP-021 | Financial reporting, reconciliation, outstanding-by-resident, Accountant scoped access | Payment | P2 | IMP-020 | FR-ACCT-001..004 | 0004, 0012 | VERIFIED | 85 | 6 |
 | IMP-022 | Lease: agreements, version history, secure documents, expiry/archive sweep | Lease | P2 | IMP-003, IMP-004 | FR-LEASE-001..007 | 0012 | IN_PROGRESS | 70 | 8 |
 | IMP-023 | Communication: persisted notifications (InApp/Email channels), announcements, read state | Communication | P2 | IMP-001 | FR-COM-001..006 | 0012 | IN_PROGRESS | 70 | 8 |
 | IMP-024 | Booking: facilities, availability, overlap-free reservations, cancellation window | Booking | P2 | IMP-003, IMP-004 | FR-BOOK-001..007 | 0012 | IN_PROGRESS | 70 | 6 |
@@ -161,8 +163,8 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 
 **Acceptance criteria (abbreviated for tasks above 0%)**
 
-- **IMP-020:** payment rows append-only with unique transaction reference; confirmations returned; balances = invoice amount − paid; due-date sweep tested.
-- **IMP-021:** report/reconciliation endpoints restricted to `Financial` policy; Accountant denied on non-financial policies; export format defined and tested.
+- **IMP-020:** ✅ met for the request/obligation scope (2026-09-10) — every payment a resident owes is a persisted request/order carrying resident, amount, currency, purpose, due date, status and creation date; the backend computes the amount currently due / overdue / upcoming per user; the explicit lifecycle is `Open → PartiallyPaid → Paid` with `Overdue` and `Cancelled`; declined attempts are recorded as `Failed` transactions and preserved. Verified by 15 unit tests ([`PaymentServiceTests.cs`](tests/PMP.Tests/PaymentServiceTests.cs:1)) and 11 API integration tests ([`PaymentApiTests.cs`](tests/PMP.Tests/Integration/PaymentApiTests.cs:1)). **Open (not part of this task):** real payment-provider integration — see GAP-012.
+- **IMP-021:** ✅ met except export (2026-09-10) — report/reconciliation/outstanding endpoints are restricted to the `Financial` policy; the Accountant can read financial records but is rejected (403) from property/maintenance data (test: `Accountant_ReadsFinancials_ButIsRestrictedFromNonFinancialModules`). **Open:** an export format is still neither defined nor tested (GAP-016).
 - **IMP-022:** each lease change creates a version row; documents access-controlled; expiry sweep marks past-end leases and notices within 30 days; test coverage added.
 - **IMP-023:** notification history queryable with delivery status; announcements filtered to the resident's property; email transport decision recorded (implement or explicitly descope FR-COM-006 email delivery).
 - **IMP-024:** overlap rejection and cancellation-window rules unit-tested (SQLite client-side evaluation documented in ADR-0012).
@@ -179,7 +181,7 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 
 | ID | Task | Area | Pri | Deps | REQ/ADR | Status | % | W |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| IMP-040 | Automated test expansion: per-module service tests for Resident, Auth, Payment, Lease, Communication, Booking, Security; shared test host/fixtures | Testing | P1 | IMP-001..005 | ADR-0005 | IN_PROGRESS | 15 | 12 |
+| IMP-040 | Automated test expansion: per-module service tests for Resident, Auth, Payment, Lease, Communication, Booking, Security; shared test host/fixtures | Testing | P1 | IMP-001..005 | ADR-0005 | IN_PROGRESS | 25 | 12 |
 | IMP-041 | Frontend test infrastructure (Vitest/RTL) + core page/route tests | Testing | P2 | IMP-007 | — | NOT_STARTED | 0 | 4 |
 | IMP-042 | CI pipeline: build + `dotnet test` + frontend lint/build on every push | DevOps | P2 | IMP-006, IMP-040 | — | NOT_STARTED | 0 | 4 |
 | IMP-043 | Deployment packaging: Dockerfile/compose or equivalent, production SQLite path, secrets/JWT config, environment matrix | DevOps | P2 | IMP-042 | ADR-0011 | NOT_STARTED | 0 | 5 |
@@ -209,8 +211,8 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | FR-PROP-001..007 | 0006, 0010, 0011 | IMP-003, IMP-034 | [`PropertiesController.cs`](src/PMP.Api/Controllers/PropertiesController.cs:25) | [`PropertyService.cs`](src/PMP.Modules.Property/Services/PropertyService.cs) | ✅ API integration (IMP-006) + 2 unit tests ([`PropertyServiceTests.cs`](tests/PMP.Tests/PropertyServiceTests.cs:10)) |
 | FR-RES-001..007 | 0008, 0010 | IMP-004 | [`ResidentsController.cs`](src/PMP.Api/Controllers/ResidentsController.cs:24) | [`ResidentService.cs`](src/PMP.Modules.Resident/Services/ResidentService.cs), [`UnitOccupancyProvider.cs`](src/PMP.Modules.Resident/Abstractions/UnitOccupancyProvider.cs) | ✅ API integration (IMP-006): auto-provisioning + own profile; ⚠️ history retention untested |
 | FR-MNT-001..008 | 0009 | IMP-005, IMP-034 | [`MaintenanceController.cs`](src/PMP.Api/Controllers/MaintenanceController.cs:27) | [`MaintenanceService.cs`](src/PMP.Modules.Maintenance/Services/MaintenanceService.cs) | ✅ API integration (IMP-006) + 3 unit tests ([`MaintenanceServiceTests.cs`](tests/PMP.Tests/MaintenanceServiceTests.cs:15)); ⚠️ auto-close job untested |
-| FR-PAY-001..007 | 0012 | IMP-020 | [`PaymentsController.cs`](src/PMP.Api/Controllers/PaymentsController.cs:32) | [`PaymentService.cs`](src/PMP.Modules.Payment/Services/PaymentService.cs) | ❌ none |
-| FR-ACCT-001..004 | 0004, 0012 | IMP-021 | [`PaymentsController.cs`](src/PMP.Api/Controllers/PaymentsController.cs:74) | [`PaymentService.cs`](src/PMP.Modules.Payment/Services/PaymentService.cs) | ❌ none |
+| FR-PAY-001..007 | 0012 | IMP-020 | [`PaymentsController.cs`](src/PMP.Api/Controllers/PaymentsController.cs:32) | [`PaymentService.cs`](src/PMP.Modules.Payment/Services/PaymentService.cs) | ✅ 15 unit ([`PaymentServiceTests.cs`](tests/PMP.Tests/PaymentServiceTests.cs:1)) + 11 API integration ([`PaymentApiTests.cs`](tests/PMP.Tests/Integration/PaymentApiTests.cs:1)) |
+| FR-ACCT-001..004 | 0004, 0012 | IMP-021 | [`PaymentsController.cs`](src/PMP.Api/Controllers/PaymentsController.cs:74) | [`PaymentService.cs`](src/PMP.Modules.Payment/Services/PaymentService.cs) | ✅ API integration: resident/technician 403 on financials; Accountant 200 financials / 403 property+maintenance |
 | FR-LEASE-001..007 | 0012 | IMP-022, IMP-033 | [`LeasesController.cs`](src/PMP.Api/Controllers/LeasesController.cs:32) | [`LeaseService.cs`](src/PMP.Modules.Lease/Services/LeaseService.cs) | ❌ none |
 | FR-COM-001..006 | 0012 | IMP-023 | [`CommunicationController.cs`](src/PMP.Api/Controllers/CommunicationController.cs:30) | [`CommunicationService.cs`](src/PMP.Modules.Communication/Services/CommunicationService.cs), [`PersistedNotificationService.cs`](src/PMP.Modules.Communication/Services/PersistedNotificationService.cs) | ❌ none |
 | FR-BOOK-001..007 | 0012 | IMP-024 | [`BookingsController.cs`](src/PMP.Api/Controllers/BookingsController.cs:30) | [`BookingService.cs`](src/PMP.Modules.Booking/Services/BookingService.cs) | ❌ none |
@@ -257,6 +259,56 @@ Remaining:     Nothing outstanding for this task. Follow-ups are recorded elsewh
                (GAP-014).
 ```
 
+### IMP-020 — Payment requests/orders: lifecycle, per-user obligations, dashboard + bell
+
+```
+Status:        VERIFIED
+Completion:    90%
+Evidence:      src/PMP.Modules.Payment/Enums/PaymentEnums.cs — explicit InvoiceStatus lifecycle
+               (Open → PartiallyPaid → Paid | Overdue | Cancelled) + PaymentPurpose + PaymentAlertType.
+               src/PMP.Modules.Payment/Entities/Invoice.cs — request now carries Currency, Purpose,
+               CancelledAt/CancellationReason and OverdueNotifiedAt; effective-status + outstanding helpers.
+               Migration 20260910211847_PaymentRequestsAndObligations (additive, backfills USD/Rent).
+               src/PMP.Modules.Payment/Services/PaymentService.cs — GenerateRentRequestAsync (amount from
+               lease MonthlyRent), GetDashboardAsync (amount due / overdue / upcoming / next due / requests /
+               history / bell alerts), GetOutstandingByResidentAsync, CancelInvoiceAsync, MarkOverdueAsync,
+               declined-attempt recording.
+               src/PMP.Api/Controllers/PaymentsController.cs — GET dashboard, GET outstanding,
+               POST requests/rent, POST invoices/{id}/cancel, POST run-due-dates.
+               Frontend: frontend/src/components/PaymentNotificationBell.tsx (badge + alert list + direct
+               navigation), frontend/src/pages/PaymentsPage.tsx (dashboard, stats, requests, history,
+               manager outstanding table, rent-request + cancel actions), index.css.
+Verification:  dotnet build PropertyManagement.sln → 0 warnings / 0 errors.
+               dotnet test PropertyManagement.sln → 47 passed / 0 failed.
+               Unit: amount derived from lease (never hard-coded); dashboard due/overdue/upcoming maths;
+               a past-due request reports Overdue before the sweep; MarkOverdue persists once and notifies
+               once; cancellation retains the record and blocks payment; full/partial payment statuses;
+               a declined attempt is preserved as Failed and raised to the bell; a resident cannot pay
+               another resident's request; manager outstanding is scoped to the manager's properties.
+               API: anonymous 401; resident/technician 403 on outstanding; Accountant 200 financials /
+               403 property+maintenance; the resident's dashboard contains only their own requests and
+               equals the sum of their outstanding balances; a manager-generated rent request equals the
+               lease monthly rent and appears in the resident's dashboard + bell; the manager outstanding
+               report lists the resident; cancellation removes the obligation and makes it unpayable;
+               a declined payment appears in history + bell.
+Remaining:     10% — real payment-provider integration (idempotency, refunds, webhooks) is explicitly out of
+               scope of this task and remains GAP-012; the payment UI has no automated frontend tests (IMP-041).
+```
+
+### IMP-021 — Financial reporting, reconciliation, Accountant scoped access
+
+```
+Status:        VERIFIED
+Completion:    85%
+Evidence:      src/PMP.Modules.Payment/Services/PaymentService.cs — GetFinancialReportAsync now reports
+               OverdueInvoices/OverdueTotal using effective status; GetReconciliationAsync unchanged in
+               behaviour; both restricted to the Financial policy.
+Verification:  API integration ([PaymentApiTests.cs]) — resident and technician receive 403 on
+               /api/payments/outstanding; the Accountant receives 200 on financial endpoints and 403 on
+               /api/properties and /api/maintenance (FR-ACCT-004).
+Remaining:     15% — no report export format is defined or tested; see the gap analysis entry.
+```
+
 ## 9. Next task selection policy
 
 Order: (1) blocking/foundation, (2) required MVP, (3) high-priority functional requirements,
@@ -279,7 +331,7 @@ This plan is mirrored 1:1 to a single, continuously updated Confluence page:
 | Page ID | `27262978` |
 | Space | `PMP` (space id `688146`) |
 | URL | https://mariamghevondyan05-1785014440825.atlassian.net/wiki/spaces/PMP/pages/27262978/PMP+Implementation+Plan |
-| Created | 2026-09-10 (version 1) |
+| Created | 2026-09-10 (version 1); synchronized 2026-09-11 at version 5 |
 | Update rule | Update this **same** page after every completed/verified task — never create a second implementation-plan page |
 
 Synchronization rule: `docs/IMPLEMENTATION_PLAN.md` and the Confluence page must always agree. If they diverge,
@@ -294,3 +346,15 @@ artifact (timeline/budget/risk/backlog) and must not be overwritten by this dash
 | 2026-09-10 | Initial plan created from ADRs, compliance audit, development plan and a verified code baseline; 13 gaps recorded; overall 54%, MVP 70%. |
 | 2026-09-10 | Mirrored to the Confluence page `PMP Implementation Plan` (page id `27262978`, space `PMP`) as the live human dashboard; page recorded here so future updates target the same page. |
 | 2026-09-10 | `IMP-006` implemented and verified — 12 new API integration tests, suite 9 → 21 passing. Dashboard counts corrected to Completed 1 / In Progress 15 / Not Started 9 / Blocked 1 / Gaps 3; MVP 70% → 87%, overall 54% → 61%. Added `GAP-014` (maintenance notification payload carries no request context). |
+| 2026-09-10 | `IMP-020`/`IMP-021` implemented and verified — payment requests/orders now carry currency + purpose, have an explicit lifecycle (`Open`/`PartiallyPaid`/`Paid`/`Overdue`/`Cancelled`), per-user obligation calculation, an overdue sweep, cancellation, declined-attempt records, a resident dashboard with a notification bell and a manager "residents who owe" view. 26 new tests (15 unit + 11 API integration); suite 21 → 47 passing; solution build 0 warnings/0 errors. Added `GAP-015` (single-currency assumption) and `GAP-016` (no report export). Recorded that real card/bank processing remains `GAP-012`. Dashboard: Completed 1 / Verified 2 / In Progress 13 / Not Started 9 / Blocked 1 / Gaps 3; Post-MVP 67% → 72%, overall 61% → 63%. |
+| 2026-09-10 | UI-readiness audit recorded — **6 new gaps** documented (GAP-017..GAP-022, UI-blocking). **`GAP-017` RESOLVED**: `GET /api/auth/me` now returns the caller's own identity via a typed `MeResponse` (id, email, first/last name, roles) sourced from the Auth record only, and the client shell hydrates from it, so the signed-in user survives a reload. Verified by API integration theory `SeededUser_CanLogin_AndMeReturnsOwnIdentity` (suite 47 passed / 0 failed, build 0 warnings / 0 errors, frontend build green). **Open:** GAP-018 (app shell/nav), GAP-019 (design-system foundation), GAP-020 (dashboard data), GAP-021 (frontend API coverage), GAP-022 (password UI) — being worked in the current cycle in that order, ahead of `IMP-040`. |
+| 2026-09-10 | **`GAP-018` RESOLVED** (with a first slice of `GAP-019`) — one declarative navigation manifest (`frontend/src/navigation.tsx`) now drives both the sidebar and the route guards; `AppLayout.tsx` adds the shell (persistent sidebar on desktop, collapsible drawer + scrim on mobile, sticky top bar with section title and a user menu showing identity/roles/sign-out); `/forbidden` + a redirect there replace the silent bounce; the dashboard's duplicated topbar was removed. Design tokens and the first primitives/icon family landed (`components/Icon.tsx`). Verified: frontend `tsc -b && vite build` green, `oxlint` 0 errors (5 pre-existing warnings); backend unchanged (47 tests still passing). **Next:** GAP-020 (dashboard data), then GAP-022 (password UI), then GAP-021 (frontend API coverage). |
+| 2026-09-10 | **`GAP-020` RESOLVED** — the dashboard is now data-driven and role-appropriate, composed client-side from existing role-scoped endpoints (no new API surface). It shows a KPI row per role (amount due/overdue, outstanding, overdue, collected, reconciliation, open requests, assigned work, unread), a "needs your attention" list and quick actions, refreshes on mount + window focus (no polling), and has loading/empty/error states. The link-card grid was dropped since the sidebar now owns navigation. Recorded decision: occupancy totals are deferred (would need an N+1 walk) in favour of plain unit counts. Verified: frontend build green, `oxlint` 0 errors. **Next:** GAP-022 (password UI), then GAP-021 (frontend API coverage). |
+| 2026-09-10 | **`GAP-022` RESOLVED** — `change-password`, `forgot-password` and `reset-password` client methods added; `/forgot-password` and `/reset-password` are public routes (sign-in page links to recovery) and `/account/password` sits inside the shell via the user menu. Local validation (min length + confirmation match) with field-level errors; the reset token is surfaced in a marked development panel because email delivery is not configured (GAP-005). Also fixed the shared client to accept empty `200`/`204` bodies. Verified: frontend build green, `oxlint` 0 errors. **Remaining in the UI-readiness sequence:** GAP-021 (frontend API coverage) and the rest of GAP-019. |
+| 2026-09-11 | **Confluence mirror synchronized — page v4.** The same page (`PMP Implementation Plan`, id `27262978`, space `PMP`) was updated to record the UI-readiness cycle: GAP-017/GAP-018/GAP-020/GAP-022 RESOLVED, GAP-019 and GAP-021 IN_PROGRESS, GAP-021 Maintenance slice verified, gaps 16 → 22, plus a v4 change-log entry, the refreshed module table and the updated next-step note. Overall 63% / MVP 87% carried over unchanged (no IMP acceptance criteria closed). No duplicate page was created. |
+| 2026-09-10 | **`GAP-021` (Property module) done** — client gained `getProperty`, `updateProperty`, `updateBuilding`, `getUnit`, `updateUnit`; `PropertiesPage` gained inline edit flows for property/building/unit with labelled fields and status pills (emoji occupancy marker removed). Frontend build green, `oxlint` 0 errors. **Remaining:** Resident, Maintenance, Lease and Booking coverage (one module per step). |
+| 2026-09-10 | **`GAP-021` (Resident module) done** — client gained `getResident`, `updateResident`, `moveOut`; `ResidentsPage` gained an edit dialog, a move-out dialog with an optional date, labelled search, status pills and empty/notice states (the assign-unit dialog heading now sits inside its form so the overlay renders correctly). Frontend build green, `oxlint` 0 errors. **Remaining:** Maintenance, Lease and Booking coverage; the rest of GAP-019; the Confluence checkpoint. |
+| 2026-09-11 | **`GAP-021` (Maintenance module) done** — client gained `getMaintenanceRequest`, `setMaintenancePriority`, `uploadMaintenanceAttachment`, `status`/`priority` filters and an optional comment on assign/status/confirm; `request()` now accepts a `FormData` body so multipart uploads keep the browser boundary. `MaintenancePage` rebuilt against the ADR-0009 state machine: role-aware filters, status/priority pills, detail panel that re-reads `GET /maintenance/{id}` (attachments, history, timestamps), manager assign + priority change, technician start/complete, resident confirm/reopen/cancel, comment capture, attachment upload gated to requester/assignee/manager, and loading/empty/error states. Taste pre-flight applied: filters apply immediately (no separate submit step, with a "shown" count), status colours reuse the shared `pill--*` vocabulary so the state machine reads identically across modules, detail sections use a token-styled `.indent h4` heading treatment instead of unstyled `h4`/`dl`, and every control keeps a visible label. Verified: frontend `tsc -b && vite build` green, `oxlint` 0 errors (4 pre-existing warnings, none in the new code — down from 5); backend unchanged (no API edits) and `dotnet test PropertyManagement.sln` re-run → 47 passed / 0 failed. Behaviour verified against the running API (http://localhost:5070) with real tokens: `POST /maintenance/{id}/priority` → priority changed Medium→High; `POST /maintenance/{id}/attachments` (multipart, requester token) → HTTP 200 and `GET /maintenance/{id}` then reports `attachmentCount=1`/`attachments=1`/`history=1`; `GET /maintenance?status=Submitted` returns only matching rows (0 mismatches) and `?priority=Urgent` filters correctly. **Note:** the verification created one maintenance request (unit A-1xx, submitted by the seeded resident) plus one attachment in the dev database, left consistent (row + stored file). **Remaining:** Lease and Booking client/UI coverage, the rest of GAP-019. |
+| 2026-09-11 | **`GAP-021` (Lease + Booking) done — GAP-021 now fully RESOLVED.** Lease: the client gained `updateLease`, `getLeaseDocuments` and `uploadLeaseDocument` (multipart, browser boundary preserved), `getLease` is now typed `LeaseDetailDto` (documents + version history) instead of `history: unknown[]`, and `getLeases` takes a status filter. `LeasesPage` rebuilt: role-aware status filter, detail panel that re-reads `GET /leases/{id}`, term updates (each save is a new API-recorded version), document upload/list and terminate-with-reason, plus loading/empty/notice states. Booking: the client gained `getFacility`, `getAvailability` and `updateFacility`; `getBookings` supports `facilityId`/`mineOnly` and `createFacility` now passes the cancellation window. `BookingsPage` rebuilt: manager facility create/edit (hours, slot length, cancellation window, active), per-facility availability for a chosen day (free/booked slots), resident slot reservation with duration and overlap-aware start times, and cancel-with-reason. **Verified:** frontend `tsc -b && vite build` green, `oxlint` 0 errors (4 pre-existing warnings, none in the new code); **behaviour smoke-tested against the running API (http://localhost:5070) with a real manager token** — `GET /api/leases` → 1 Active lease; `GET /api/leases/{id}` → `documents:[]`/`history:[]`; `GET /api/leases/{id}/documents` → 200 `[]`; `GET /api/bookings/facilities` → 1 facility (Community Gym, 60-min slots, 2h cancellation window); `GET /api/bookings/facilities/{id}` → detail; `GET /api/bookings/facilities/{id}/availability?date=…` → open 480 / close 1320 / slot 60 / 0 bookings; `GET /api/bookings` → 1. The check was **read-only** (only a login/refresh row was written) so no dev data was mutated. Backend unchanged. **Remaining:** none for GAP-021 (Maintenance *service-level* coverage stays with IMP-040). |
+| 2026-09-11 | **`GAP-019` RESOLVED** — the design system is complete. [`frontend/src/index.css`](frontend/src/index.css) now carries the full token-based primitive set: buttons (`.btn` + `--primary`/`--ghost`/`--danger`/`--sm`), fields (`.field` + `.field-hint`), tables (`.table-wrap`/`.table`), the status pill (`.pill--ok|warn|danger|info|muted`), alerts (`.alert--error|success|info`) and one empty/loading/error shape (`.state` + `--empty`/`--loading`/`--error`, with a `prefers-reduced-motion` guard); the legacy base styles were converted from raw hex to tokens (a few tint/strong tokens added) so the palette has a single source. Every remaining pre-GAP-019 `.badge` chip was migrated to the status pill (`AdminUsersPage`, `CommunicationPage`, `SecurityPage`), and `.error`/`.hint` are now aliases of the alert primitive so existing screens keep working. **Icon family decision recorded:** keep the in-house 24x24 stroke family ([`Icon.tsx`](frontend/src/components/Icon.tsx:1)) rather than adopt an icon library — no extra dependency/licensing surface, tree-shakeable, and the shapes already match the design language. **Verified:** frontend build green, `oxlint` 0 errors (4 pre-existing warnings). Overall 63% / MVP 87% carried over unchanged (the gap closures close no IMP acceptance criteria on their own). |
+| 2026-09-11 | **Confluence mirror synchronized — page v5.** The same page (`PMP Implementation Plan`, id `27262978`, space `PMP`) now records GAP-019 and GAP-021 as RESOLVED, the Lease + Booking checkpoint (client methods, rebuilt screens, read-only live API smoke checks), the icon-family decision and a v5 change-log entry; the page's module-table percentages were reconciled to this plan (Frontend 75%, Database/API 80%, IMP-026 75%, IMP-052 50%). Overall 63% / MVP 87% and the task counts are identical on both sides. No duplicate page was created. |

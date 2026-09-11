@@ -254,7 +254,7 @@ public class DbSeeder
         // --- Invoice (BR-005) ---
         var activeLease = await leaseDb.LeaseAgreements.AsNoTracking()
             .FirstOrDefaultAsync(l => l.ResidentUserId == residentUserId && l.Status == LeaseStatus.Active);
-        var hasInvoice = await paymentDb.Invoices.AnyAsync(i => i.ResidentUserId == residentUserId && i.Status != "Voided");
+        var hasInvoice = await paymentDb.Invoices.AnyAsync(i => i.ResidentUserId == residentUserId && i.Status != InvoiceStatus.Cancelled);
         if (activeLease is not null && !hasInvoice)
         {
             var now = DateTimeOffset.UtcNow;
@@ -268,7 +268,9 @@ public class DbSeeder
                 PeriodEnd = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset).AddMonths(1),
                 DueDate = new DateTimeOffset(now.Year, now.Month, 10, 0, 0, 0, now.Offset),
                 Amount = activeLease.MonthlyRent,
-                Status = "Open",
+                Currency = PaymentCurrency.Default,
+                Purpose = PaymentPurpose.Rent,
+                Status = InvoiceStatus.Open,
             });
             await paymentDb.SaveChangesAsync();
         }

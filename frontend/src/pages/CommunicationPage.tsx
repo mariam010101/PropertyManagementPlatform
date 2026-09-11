@@ -79,7 +79,7 @@ export default function CommunicationPage() {
       {notifications.map((n) => (
         <div key={n.id} className="panel" onClick={() => !n.isRead && markRead(n.id)} style={{ cursor: 'pointer' }}>
           <div className="row space-between">
-            <strong>{n.title} {!n.isRead && <span className="badge">new</span>}</strong>
+            <strong>{n.title} {!n.isRead && <span className="pill pill--info">new</span>}</strong>
             <span className="muted">{new Date(n.createdAt).toLocaleString()}</span>
           </div>
           <p className={n.isRead ? 'muted' : ''}>{n.body}</p>

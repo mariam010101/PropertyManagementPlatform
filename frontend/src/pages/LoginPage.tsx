@@ -40,6 +40,9 @@ export default function LoginPage() {
         <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>
       <p className="muted">
+        <Link to="/forgot-password">Forgot your password?</Link>
+      </p>
+      <p className="muted">
         New resident? <Link to="/register">Register here</Link>
       </p>
       <div className="hint">

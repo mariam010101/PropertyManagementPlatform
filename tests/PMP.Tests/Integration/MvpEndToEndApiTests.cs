@@ -46,11 +46,11 @@ public class MvpEndToEndApiTests
     // ---------- FR-AUTH-002 / FR-AUTH-008: seeded accounts authenticate with roles ----------
 
     [Theory]
-    [InlineData(AdminEmail, AdminPassword, "Administrator")]
-    [InlineData(ManagerEmail, ManagerPassword, "PropertyManager")]
-    [InlineData(TechnicianEmail, TechnicianPassword, "Technician")]
-    [InlineData(ResidentEmail, ResidentPassword, "Resident")]
-    public async Task SeededUser_CanLogin_AndReceivesRoleClaim(string email, string password, string expectedRole)
+    [InlineData(AdminEmail, AdminPassword, "Administrator", "System")]
+    [InlineData(ManagerEmail, ManagerPassword, "PropertyManager", "Anna")]
+    [InlineData(TechnicianEmail, TechnicianPassword, "Technician", "Tom")]
+    [InlineData(ResidentEmail, ResidentPassword, "Resident", "Rita")]
+    public async Task SeededUser_CanLogin_AndMeReturnsOwnIdentity(string email, string password, string expectedRole, string expectedFirstName)
     {
         var auth = await _api.LoginAsync(email, password);
 
@@ -61,9 +61,14 @@ public class MvpEndToEndApiTests
         Assert.Null(auth.EmailConfirmationToken);
 
         // FR-AUTH-008 evidence: the issued token is accepted by a protected endpoint.
+        // GAP-017 evidence: /me returns the caller's own identity, so the UI shell can render
+        // the signed-in user after a reload instead of a blank name.
         var me = await _api.GetAsync("/api/auth/me", auth.AccessToken);
         Assert.True(me.Code == 200, $"GET /api/auth/me failed for {email}: {me}");
         Assert.Contains(auth.UserId.ToString(), me.Body);
+        Assert.Contains(auth.Email, me.Body);
+        Assert.Contains(expectedFirstName, me.Body);
+        Assert.Contains(expectedRole, me.Body);
     }
 
     // ---------- FR-AUTH-001 / email-verification gate / FR-RES-001 ----------

@@ -34,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       try {
         const me = await api.me()
-        setUser({ id: me.userId, email: '', firstName: '', lastName: '', roles: me.roles })
+        // /auth/me returns the full identity so the shell keeps the signed-in user's
+        // name/email after a reload (GAP-017), not just the id and roles.
+        setUser({ id: me.userId, email: me.email, firstName: me.firstName, lastName: me.lastName, roles: me.roles })
       } catch {
         clearTokens()
         setUser(null)

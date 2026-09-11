@@ -82,8 +82,12 @@ export default function AdminUsersPage() {
           <div className="row space-between">
             <div>
               <strong>{u.firstName} {u.lastName}</strong> — {u.email}
-              {isSelf(u.id) && <span className="badge">you</span>}
-              {u.isActive ? <span className="badge">Active</span> : <span className="badge red">Inactive</span>}
+              {isSelf(u.id) && <span className="pill pill--info">you</span>}
+              {u.isActive ? (
+                <span className="pill pill--ok">Active</span>
+              ) : (
+                <span className="pill pill--muted">Inactive</span>
+              )}
             </div>
             <div className="row">
               <button className="ghost" disabled={busyId === u.id} onClick={() => saveRoles(u)}>Save roles</button>

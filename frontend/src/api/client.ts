@@ -37,8 +37,11 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getAccessToken()
+  // FormData uploads must let the browser set the multipart boundary, so the
+  // JSON content type is only applied to ordinary JSON payloads.
+  const isForm = options.body instanceof FormData
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isForm ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string> | undefined),
   }
@@ -46,7 +49,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const response = await fetch(`/api${path}`, {
     ...options,
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body:
+      options.body === undefined
+        ? undefined
+        : isForm
+          ? (options.body as FormData)
+          : JSON.stringify(options.body),
   })
 
   if (response.status === 401) {
@@ -70,7 +78,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     throw new ApiError(body?.error ?? `Request failed (${response.status})`, response.status)
   }
 
-  return (await response.json()) as T
+  // Some endpoints succeed with an empty body (change-password, logout, reset-password);
+  // treat that as undefined instead of throwing a JSON parse error.
+  if (response.status === 204) return undefined as T
+  const text = await response.text()
+  return (text ? (JSON.parse(text) as T) : (undefined as T))
 }
 
 async function tryRefresh(): Promise<boolean> {
@@ -101,6 +113,20 @@ export interface AuthResponse {
   lastName: string
   roles: string[]
   emailConfirmationToken?: string | null
+}
+
+/** The caller's own identity, returned by GET /auth/me (used by the app shell). */
+export interface MeResponse {
+  userId: string
+  email: string
+  firstName: string
+  lastName: string
+  roles: string[]
+}
+
+/** Reset token, populated only because email delivery is not configured yet (GAP-005). */
+export interface ForgotPasswordResponse {
+  resetToken?: string | null
 }
 
 export interface RegisterRequest {
@@ -181,6 +207,7 @@ export interface MaintenanceRequestDto {
   unitId: string
   unitNumber?: string
   assignedToUserId?: string
+  assignedToName?: string
   assignedAt?: string
   completedAt?: string
   confirmedAt?: string
@@ -223,6 +250,8 @@ export interface AnnouncementDto {
   publishedAt: string
 }
 
+export type LeaseStatus = 'Active' | 'Expired' | 'Terminated' | 'Cancelled'
+
 export interface LeaseDto {
   id: string
   residentUserId: string
@@ -234,7 +263,7 @@ export interface LeaseDto {
   startDate: string
   endDate: string
   monthlyRent: number
-  status: 'Active' | 'Expired' | 'Terminated' | 'Cancelled'
+  status: LeaseStatus
   currentVersion: number
   terminatedAt?: string
   documentCount: number
@@ -249,6 +278,22 @@ export interface LeaseDocumentDto {
   version: number
   uploadedAt: string
 }
+
+export interface LeaseHistoryDto {
+  version: number
+  changeType: string
+  description: string
+  changedByUserId: string
+  changedAt: string
+}
+
+/** Lease plus its documents and version history, returned by GET /leases/{id}. */
+export interface LeaseDetailDto extends LeaseDto {
+  documents: LeaseDocumentDto[]
+  history: LeaseHistoryDto[]
+}
+
+export type InvoiceStatus = 'Open' | 'PartiallyPaid' | 'Paid' | 'Overdue' | 'Cancelled'
 
 export interface InvoiceDto {
   id: string
@@ -265,8 +310,12 @@ export interface InvoiceDto {
   amount: number
   paidAmount: number
   outstandingBalance: number
-  status: string
+  currency: string
+  purpose: string
+  status: InvoiceStatus
   paidAt?: string
+  createdAt: string
+  cancelledAt?: string
 }
 
 export interface PaymentTransactionDto {
@@ -275,10 +324,58 @@ export interface PaymentTransactionDto {
   invoiceId: string
   residentUserId: string
   amount: number
+  currency: string
   status: string
   method: string
   paidAt?: string
   confirmationNumber?: string
+  failureReason?: string
+  createdAt: string
+}
+
+export type PaymentAlertType = 'NewRequest' | 'DueSoon' | 'Overdue' | 'FailedPayment'
+export type PaymentAlertSeverity = 'info' | 'warning' | 'critical'
+
+/** One piece of payment attention shown by the dashboard notification bell. */
+export interface PaymentAlertDto {
+  type: PaymentAlertType
+  severity: PaymentAlertSeverity
+  title: string
+  message: string
+  amount: number
+  currency: string
+  dueDate?: string
+  requestId?: string
+}
+
+/** The caller's own payment state, computed on the backend. */
+export interface PaymentDashboardDto {
+  amountCurrentlyDue: number
+  overdueAmount: number
+  upcomingAmount: number
+  outstandingRequestCount: number
+  overdueRequestCount: number
+  nextDueDate?: string
+  hasOutstanding: boolean
+  currency: string
+  requests: InvoiceDto[]
+  history: PaymentTransactionDto[]
+  alerts: PaymentAlertDto[]
+}
+
+/** A resident with money owed — the manager/administrator view. */
+export interface ResidentOutstandingDto {
+  residentUserId: string
+  residentName: string
+  email: string
+  unitNumber: string
+  propertyName: string
+  totalOutstanding: number
+  overdueAmount: number
+  openRequestCount: number
+  oldestDueDate?: string
+  hasOverdue: boolean
+  currency: string
 }
 
 export interface BalanceDto {
@@ -294,6 +391,7 @@ export interface FinancialReportDto {
   failedPayments: number
   openInvoices: number
   paidInvoices: number
+  overdueInvoices: number
   overdueTotal: number
 }
 
@@ -310,6 +408,8 @@ export interface FacilityDto {
   cancellationWindowHours: number
 }
 
+export type BookingStatus = 'Reserved' | 'Cancelled' | 'Completed'
+
 export interface FacilityBookingDto {
   id: string
   facilityId: string
@@ -318,10 +418,20 @@ export interface FacilityBookingDto {
   bookedByName: string
   startAt: string
   endAt: string
-  status: 'Reserved' | 'Cancelled' | 'Completed'
+  status: BookingStatus
   cancelledAt?: string
   cancellationReason?: string
   bookingReference: string
+}
+
+/** A facility's opening hours and reserved slots for one calendar day. */
+export interface AvailabilityDto {
+  facilityId: string
+  date: string
+  openMinutes: number
+  closeMinutes: number
+  slotMinutes: number
+  bookings: FacilityBookingDto[]
 }
 
 export interface VisitorDto {
@@ -373,7 +483,16 @@ export const api = {
   logout: (refreshToken: string) =>
     request<void>('/auth/logout', { method: 'POST', body: { refreshToken } }),
 
-  me: () => request<{ userId: string; roles: string[] }>('/auth/me'),
+  me: () => request<MeResponse>('/auth/me'),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>('/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
+
+  forgotPassword: (email: string) =>
+    request<ForgotPasswordResponse>('/auth/forgot-password', { method: 'POST', body: { email } }),
+
+  resetPassword: (email: string, token: string, newPassword: string) =>
+    request<void>('/auth/reset-password', { method: 'POST', body: { email, token, newPassword } }),
 
   getStaff: (role?: string) =>
     request<{ id: string; firstName: string; lastName: string; email: string; role: string }[]>(
@@ -400,26 +519,66 @@ export const api = {
   getUnits: (buildingId: string) => request<UnitDto[]>(`/buildings/${buildingId}/units`),
   createUnit: (buildingId: string, body: { unitNumber: string; unitType: string; bedrooms?: number; bathrooms?: number; areaSqM?: number; operationalStatus: string; notes?: string }) =>
     request<UnitDto>(`/buildings/${buildingId}/units`, { method: 'POST', body }),
+  getProperty: (propertyId: string) => request<PropertyDto>(`/properties/${propertyId}`),
+  updateProperty: (
+    propertyId: string,
+    body: { name: string; address: string; city?: string; description?: string; managerUserId: string },
+  ) => request<PropertyDto>(`/properties/${propertyId}`, { method: 'PUT', body }),
+  updateBuilding: (propertyId: string, buildingId: string, body: { name: string; address?: string; floors?: number }) =>
+    request<BuildingDto>(`/properties/${propertyId}/buildings/${buildingId}`, { method: 'PUT', body }),
+  getUnit: (unitId: string) => request<UnitDto>(`/units/${unitId}`),
+  updateUnit: (
+    unitId: string,
+    body: {
+      unitNumber: string
+      unitType: string
+      bedrooms?: number
+      bathrooms?: number
+      areaSqM?: number
+      operationalStatus: string
+      notes?: string
+    },
+  ) => request<UnitDto>(`/units/${unitId}`, { method: 'PUT', body }),
 
   // residents
   getResidents: (search?: string) =>
     request<ResidentProfileDto[]>(`/residents${search ? `?search=${encodeURIComponent(search)}` : ''}`),
   getMyProfile: () => request<ResidentProfileDto>('/residents/me'),
+  getResident: (residentId: string) => request<ResidentProfileDto>(`/residents/${residentId}`),
+  updateResident: (residentId: string, body: { firstName: string; lastName: string; phoneNumber?: string }) =>
+    request<ResidentProfileDto>(`/residents/${residentId}`, { method: 'PUT', body }),
   assignUnit: (residentId: string, unitId: string) =>
     request<ResidentProfileDto>(`/residents/${residentId}/assign-unit`, { method: 'POST', body: { unitId } }),
+  moveOut: (residentId: string, moveOutDate?: string) =>
+    request<ResidentProfileDto>(`/residents/${residentId}/move-out`, { method: 'POST', body: { moveOutDate } }),
   deactivateResident: (residentId: string) =>
     request<void>(`/residents/${residentId}/deactivate`, { method: 'POST' }),
 
   // maintenance
-  getMaintenance: () => request<MaintenanceRequestDto[]>('/maintenance'),
+  getMaintenance: (filters?: { status?: MaintenanceStatus; priority?: MaintenancePriority; unitId?: string }) => {
+    const query = new URLSearchParams()
+    if (filters?.status) query.set('status', filters.status)
+    if (filters?.priority) query.set('priority', filters.priority)
+    if (filters?.unitId) query.set('unitId', filters.unitId)
+    const suffix = query.toString()
+    return request<MaintenanceRequestDto[]>(`/maintenance${suffix ? `?${suffix}` : ''}`)
+  },
+  getMaintenanceRequest: (id: string) => request<MaintenanceRequestDto>(`/maintenance/${id}`),
   submitMaintenance: (body: { title: string; description: string; unitId: string; priority: MaintenancePriority }) =>
     request<MaintenanceRequestDto>('/maintenance', { method: 'POST', body }),
-  assignMaintenance: (id: string, technicianUserId: string) =>
-    request<MaintenanceRequestDto>(`/maintenance/${id}/assign`, { method: 'POST', body: { technicianUserId } }),
+  assignMaintenance: (id: string, technicianUserId: string, comment?: string) =>
+    request<MaintenanceRequestDto>(`/maintenance/${id}/assign`, { method: 'POST', body: { technicianUserId, comment } }),
   updateMaintenanceStatus: (id: string, status: MaintenanceStatus, comment?: string) =>
     request<MaintenanceRequestDto>(`/maintenance/${id}/status`, { method: 'POST', body: { status, comment } }),
-  confirmMaintenance: (id: string) =>
-    request<MaintenanceRequestDto>(`/maintenance/${id}/confirm`, { method: 'POST', body: {} }),
+  setMaintenancePriority: (id: string, priority: MaintenancePriority) =>
+    request<MaintenanceRequestDto>(`/maintenance/${id}/priority`, { method: 'POST', body: { priority } }),
+  confirmMaintenance: (id: string, comment?: string) =>
+    request<MaintenanceRequestDto>(`/maintenance/${id}/confirm`, { method: 'POST', body: { comment } }),
+  uploadMaintenanceAttachment: (id: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<void>(`/maintenance/${id}/attachments`, { method: 'POST', body: form })
+  },
 
   // communication & notifications (BR-007)
   getNotifications: (unreadOnly = false) =>
@@ -435,21 +594,36 @@ export const api = {
     request<AnnouncementDto>('/communication/announcements', { method: 'POST', body }),
 
   // leases (BR-006)
-  getLeases: () => request<LeaseDto[]>('/leases'),
-  getLease: (id: string) => request<LeaseDto & { documents: LeaseDocumentDto[]; history: unknown[] }>(`/leases/${id}`),
+  getLeases: (status?: LeaseStatus) =>
+    request<LeaseDto[]>(`/leases${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  getLease: (id: string) => request<LeaseDetailDto>(`/leases/${id}`),
   createLease: (body: { residentUserId: string; unitId: string; startDate: string; endDate: string; monthlyRent: number }) =>
     request<LeaseDto>('/leases', { method: 'POST', body }),
+  updateLease: (id: string, body: { startDate: string; endDate: string; monthlyRent: number }) =>
+    request<LeaseDetailDto>(`/leases/${id}`, { method: 'PUT', body }),
   terminateLease: (id: string, comment?: string) =>
     request<void>(`/leases/${id}/terminate`, { method: 'POST', body: { comment } }),
+  getLeaseDocuments: (id: string) => request<LeaseDocumentDto[]>(`/leases/${id}/documents`),
+  uploadLeaseDocument: (id: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<LeaseDocumentDto>(`/leases/${id}/documents`, { method: 'POST', body: form })
+  },
 
   // payments (BR-005) + accountant reports (BR-011)
   getBalance: () => request<BalanceDto>('/payments/balance'),
-  getInvoices: (status?: string) =>
+  getPaymentDashboard: () => request<PaymentDashboardDto>('/payments/dashboard'),
+  getInvoices: (status?: InvoiceStatus) =>
     request<InvoiceDto[]>(`/payments/invoices${status ? `?status=${encodeURIComponent(status)}` : ''}`),
-  createInvoice: (body: { leaseAgreementId: string; periodStart: string; periodEnd: string; dueDate: string; amount: number }) =>
+  getOutstanding: () => request<ResidentOutstandingDto[]>('/payments/outstanding'),
+  createInvoice: (body: { leaseAgreementId: string; periodStart: string; periodEnd: string; dueDate: string; amount: number; currency?: string; purpose?: string }) =>
     request<InvoiceDto>('/payments/invoices', { method: 'POST', body }),
+  generateRentRequest: (leaseAgreementId: string) =>
+    request<InvoiceDto>('/payments/requests/rent', { method: 'POST', body: { leaseAgreementId } }),
   payInvoice: (invoiceId: string, amount: number) =>
     request<PaymentTransactionDto>(`/payments/invoices/${invoiceId}/pay`, { method: 'POST', body: { amount, method: 'Card' } }),
+  cancelInvoice: (invoiceId: string, reason?: string) =>
+    request<InvoiceDto>(`/payments/invoices/${invoiceId}/cancel`, { method: 'POST', body: { reason } }),
   getPaymentHistory: () => request<PaymentTransactionDto[]>('/payments/history'),
   getFinancialReport: () => request<FinancialReportDto>('/payments/report'),
   getReconciliation: () =>
@@ -460,11 +634,39 @@ export const api = {
   // facility booking (BR-009)
   getFacilities: (propertyId?: string) =>
     request<FacilityDto[]>(`/bookings/facilities${propertyId ? `?propertyId=${propertyId}` : ''}`),
-  createFacility: (body: { propertyId: string; name: string; description?: string; openMinutes: number; closeMinutes: number; slotMinutes: number }) =>
-    request<FacilityDto>('/bookings/facilities', { method: 'POST', body }),
+  getFacility: (facilityId: string) => request<FacilityDto>(`/bookings/facilities/${facilityId}`),
+  getAvailability: (facilityId: string, date: string) =>
+    request<AvailabilityDto>(`/bookings/facilities/${facilityId}/availability?date=${encodeURIComponent(date)}`),
+  createFacility: (body: {
+    propertyId: string
+    name: string
+    description?: string
+    openMinutes: number
+    closeMinutes: number
+    slotMinutes: number
+    cancellationWindowHours?: number
+  }) => request<FacilityDto>('/bookings/facilities', { method: 'POST', body }),
+  updateFacility: (
+    facilityId: string,
+    body: {
+      name?: string
+      description?: string
+      isActive?: boolean
+      openMinutes?: number
+      closeMinutes?: number
+      slotMinutes?: number
+      cancellationWindowHours?: number
+    },
+  ) => request<FacilityDto>(`/bookings/facilities/${facilityId}`, { method: 'PUT', body }),
   bookFacility: (facilityId: string, startAt: string, endAt: string) =>
     request<FacilityBookingDto>('/bookings', { method: 'POST', body: { facilityId, startAt, endAt } }),
-  getBookings: (mineOnly = false) => request<FacilityBookingDto[]>(`/bookings?mineOnly=${mineOnly}`),
+  getBookings: (filters?: { facilityId?: string; mineOnly?: boolean }) => {
+    const query = new URLSearchParams()
+    if (filters?.facilityId) query.set('facilityId', filters.facilityId)
+    if (filters?.mineOnly) query.set('mineOnly', 'true')
+    const suffix = query.toString()
+    return request<FacilityBookingDto[]>(`/bookings${suffix ? `?${suffix}` : ''}`)
+  },
   cancelBooking: (bookingId: string, reason?: string) =>
     request<void>(`/bookings/${bookingId}/cancel`, { method: 'POST', body: { reason } }),
 

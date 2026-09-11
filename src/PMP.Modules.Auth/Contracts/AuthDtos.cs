@@ -106,6 +106,24 @@ public record AuthResponse
     public string? EmailConfirmationToken { get; init; }
 }
 
+/// <summary>
+/// The authenticated caller's own identity, used by the client to render the signed-in
+/// user (name, email, roles) after a reload. Read-only: the identity is sourced from the
+/// Auth user record only, so the Auth module never depends on other modules' data.
+/// </summary>
+public record MeResponse
+{
+    public Guid UserId { get; init; }
+
+    public string Email { get; init; } = string.Empty;
+
+    public string FirstName { get; init; } = string.Empty;
+
+    public string LastName { get; init; } = string.Empty;
+
+    public IReadOnlyList<string> Roles { get; init; } = Array.Empty<string>();
+}
+
 public record UserSummaryDto
 {
     public Guid Id { get; init; }

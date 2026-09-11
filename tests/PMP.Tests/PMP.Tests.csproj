@@ -25,6 +25,9 @@
     <ProjectReference Include="..\..\src\PMP.Modules.Property\PMP.Modules.Property.csproj" />
     <ProjectReference Include="..\..\src\PMP.Modules.Resident\PMP.Modules.Resident.csproj" />
     <ProjectReference Include="..\..\src\PMP.Modules.Maintenance\PMP.Modules.Maintenance.csproj" />
+    <ProjectReference Include="..\..\src\PMP.Modules.Lease\PMP.Modules.Lease.csproj" />
+    <ProjectReference Include="..\..\src\PMP.Modules.Communication\PMP.Modules.Communication.csproj" />
+    <ProjectReference Include="..\..\src\PMP.Modules.Payment\PMP.Modules.Payment.csproj" />
   </ItemGroup>
 
 </Project>

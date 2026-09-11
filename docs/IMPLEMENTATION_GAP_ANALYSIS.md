@@ -1,6 +1,6 @@
 # PMP Implementation Gap Analysis
 
-**Last Updated:** 2026-09-10
+**Last Updated:** 2026-09-11 08:55 UTC (2026-09-11 12:55 Asia/Yerevan)
 **Companion document:** [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
 **Method:** every item below was identified by comparing approved requirements/ADRs
 ([`docs/adr/`](docs/adr/), [`docs/requirements-compliance.md`](docs/requirements-compliance.md),
@@ -8,7 +8,7 @@
 in §1 of the plan. Gaps are recorded, never silently dropped.
 
 Priority key: **P1** = required for MVP/verification, **P2** = post-MVP required, **P3** = hardening/tech debt.
-Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `BLOCKED`, `IN_PROGRESS`).
+Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `RESOLVED`).
 
 | GAP | Title | Module | REQ / ADR | Priority | Related task | Status |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -24,6 +24,14 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `BLOCKED`, `IN_PROGRESS`)
 | GAP-010 | Documentation drift: `plans/pmp-development-plan.md` points the SPA at `src/frontend/` (actual: [`frontend/`](frontend)); ADR-0007 remains `accepted` although ADR-0012 re-scoped the roadmap; MVP definition differs between ADR-0007 and [`README.md`](README.md:130); aggregate entity is `ManagedProperty` while other text says `Property`; compliance audit not refreshed since 2026-09-03 | Docs | ADR-0007, ADR-0012 | P3 | IMP-051 | GAP |
 | GAP-011 | No BRULE pages published for BR-009 (Booking) / BR-010 (Security), leaving those FR sets without business-rule traceability | Docs / Requirements | FR-BOOK-001..007, FR-SEC-001..007 | P3 | IMP-035 | GAP |
 | GAP-012 | Payment is simulated: no payment-provider integration, so FR-PAY-002 "pay electronically" is satisfied only in the demo sense (no reversal/refund, no idempotency keys, no provider webhooks) | Payment | FR-PAY-002, FR-PAY-003; ADR-0012 (trade-off) | P2 | IMP-020 | GAP |
+| GAP-015 | Single-currency assumption: a payment request now stores and displays `Currency`, but there is no FX, no per-property currency configuration, and balances/reports sum across currencies without conversion | Payment | FR-PAY-001..007; ADR-0012 | P3 | IMP-020 | GAP |
+| GAP-016 | No financial-report export: the report/reconciliation endpoints return JSON only; no CSV/PDF export format is defined or tested | Payment | FR-ACCT-002; ADR-0012 | P3 | IMP-021 | GAP |
+| GAP-017 | `GET /api/auth/me` returned only `userId` + `roles`, so the client could not render the signed-in user's name/email after a reload | Auth | FR-AUTH-005; ADR-0003 | P1 | — (resolved) | RESOLVED |
+| GAP-018 | No app shell, layout route or shared navigation: pages rendered bare containers, navigation was hand-rolled per page and there was no permission-denied state | Frontend | FR-RBAC-002/004; ADR-0004 | P1 | IMP-007, IMP-026 | RESOLVED |
+| GAP-019 | No design-system foundation (tokens, shared component/table/form primitives, icon family); styling was a single utility stylesheet | Frontend | — | P2 | IMP-007, IMP-026 | RESOLVED |
+| GAP-020 | No dashboard statistics: there was no aggregate endpoint and the dashboard page performed no data fetch (static link grid) | Frontend / cross-module | no requirement IDs exist | P2 | IMP-007, IMP-052 | RESOLVED |
+| GAP-021 | Frontend API coverage was incomplete vs the backend: the typed client omitted detail/update/availability/attachment calls the endpoints already expose (Property, Resident, Maintenance, Lease and Booking now all covered) | Property, Resident, Maintenance, Lease, Booking | FR-PROP/RES/MNT/LEASE/BOOK sets; ADR-0006 | P2 | IMP-003, IMP-004, IMP-005, IMP-022, IMP-024, IMP-026 | RESOLVED |
+| GAP-022 | No password reset/change UI or client methods although the backend endpoints exist | Auth | FR-AUTH-003, FR-AUTH-004; ADR-0003 | P2 | IMP-001, IMP-007 | RESOLVED |
 | GAP-013 | Platform NFRs (performance, availability, backup/restore of `pmp.db`, observability) have no requirement IDs and no verification — pure traceability gap | Cross-cutting | none exist | P3 | IMP-044, IMP-052 | GAP |
 | GAP-014 | Maintenance notifications carry no request context (the request title is absent from the persisted payload), so a resident cannot identify which request a notification refers to | Maintenance / Communication | FR-MNT-005, FR-COM-001 | P3 | IMP-040 | GAP |
 
@@ -34,16 +42,16 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `BLOCKED`, `IN_PROGRESS`)
 ### GAP-001 — Automated test coverage still thin outside the MVP API slice
 - **Affected module:** cross-module (Resident, Payment, Lease, Communication, Booking, Security services; the three hosted jobs; frontend).
 - **Related requirement/ADR:** all FR sets; ADR-0005 (service `Result` pattern makes service-level testing the intended seam).
-- **Current state:** `IMP-006` (2026-09-10) added 12 API integration tests
-  ([`PmpApiFixture.cs`](tests/PMP.Tests/Integration/PmpApiFixture.cs:1),
-  [`MvpEndToEndApiTests.cs`](tests/PMP.Tests/Integration/MvpEndToEndApiTests.cs:1)) that verify the MVP slice over
-  real HTTP against a throwaway SQLite database — journey, authorization negatives, notification persistence and
-  the refresh/logout lifecycle. `dotnet test` → 21 passed / 0 failed. Still uncovered: service-level tests for
-  Resident/Payment/Lease/Communication/Booking/Security, post-MVP endpoint coverage, the maintenance 7-day
-  auto-close job, the lease/payment background sweeps, attachment upload, and all frontend behaviour
+- **Current state:** `IMP-006` (2026-09-10) added 12 API integration tests and `IMP-020`/`IMP-021`
+  (2026-09-10) added 15 Payment service unit tests
+  ([`PaymentServiceTests.cs`](tests/PMP.Tests/PaymentServiceTests.cs:1)) plus 11 Payment API integration tests
+  ([`PaymentApiTests.cs`](tests/PMP.Tests/Integration/PaymentApiTests.cs:1)). The suite is now 47 passed /
+  0 failed (24 unit + 23 API integration). Still uncovered: service-level tests for
+  Resident/Lease/Communication/Booking/Security, the maintenance 7-day auto-close job, the lease/due-date
+  background sweeps, attachment upload, and all frontend behaviour
   ([`UnitTest1.cs`](tests/PMP.Tests/UnitTest1.cs) placeholder still present).
-- **What remains:** extend the integration host to the post-MVP endpoints, add per-module service tests reusing
-  the [`TestDoubles.cs`](tests/PMP.Tests/TestDoubles.cs) pattern, add tests for the three hosted services,
+- **What remains:** add the remaining per-module service tests reusing the
+  [`TestDoubles.cs`](tests/PMP.Tests/TestDoubles.cs) pattern, add tests for the three hosted services,
   remove the placeholder, and stand up frontend testing.
 - **Priority:** P1.
 - **Related tasks:** `IMP-040` (per-module expansion, next task), `IMP-041` (frontend), `IMP-042` (CI).
@@ -158,10 +166,15 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `BLOCKED`, `IN_PROGRESS`)
 ### GAP-012 — Simulated payments
 - **Affected module:** Payment.
 - **Related requirement/ADR:** FR-PAY-002, FR-PAY-003; ADR-0012 documents the trade-off.
-- **Current state:** `PayInvoiceAsync` simulates card/bank payment and issues a confirmation number; there is no
+- **Current state:** `IMP-020` (2026-09-10) completed the payment **request/order and obligation** side — every
+  resident obligation is a persisted request carrying resident/amount/currency/purpose/due date/status/creation
+  date, the backend calculates the amount currently due per user, and declined attempts are recorded as
+  `Failed` transactions so the history is complete. The actual money movement is still simulated: the
+  "processor" completes a valid charge and declines a charge above the outstanding balance; there is no
   provider integration, so no refunds, reversals, idempotency keys, or webhook reconciliation exist.
 - **What remains:** record the decision (simulated-for-demo vs provider integration), and if integration is
-  required, add provider abstraction + idempotency + reconciliation tests.
+  required, add provider abstraction + idempotency + reconciliation tests. This was explicitly **out of scope**
+  for the payment-request task.
 - **Priority:** P2.
 - **Related task:** `IMP-020`.
 
@@ -189,6 +202,147 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `BLOCKED`, `IN_PROGRESS`)
   these as engineering standards; then verify whichever is agreed (health check, logging, backup procedure).
 - **Priority:** P3.
 - **Related tasks:** `IMP-044`, `IMP-052`.
+
+### GAP-015 — Single-currency assumption
+- **Affected module:** Payment.
+- **Related requirement/ADR:** FR-PAY-001..007; ADR-0012 (Payment module scope).
+- **Current state:** a payment request now stores the ISO-4217 `Currency` (defaulting to `USD`) and the UI
+  formats each amount in that currency, but there is no foreign-exchange handling, no per-property currency
+  configuration, and the financial report/reconciliation totals sum amounts across currencies without
+  conversion, so mixed-currency data would be added arithmetically.
+- **What remains:** decide whether multi-currency is in scope; if it is, add a currency source of truth
+  (property/lease), reject or convert mixed-currency aggregation, and test it. If it is not, record that the
+  platform is single-currency by design.
+- **Priority:** P3 (the demo deployment is single-currency).
+- **Related task:** `IMP-020`.
+
+### GAP-016 — No financial-report export
+- **Affected module:** Payment (BR-011 Accounting).
+- **Related requirement/ADR:** FR-ACCT-002 ("generate/export financial reports"); ADR-0012.
+- **Current state:** `GetFinancialReportAsync`/`GetReconciliationAsync` return JSON with collected,
+  outstanding, overdue and reconciliation figures, and the Accountant access boundaries are now tested, but no
+  export format (CSV/PDF) is defined or produced.
+- **What remains:** define the export format, implement an export endpoint restricted to the `Financial`
+  policy, and test it.
+- **Priority:** P3.
+- **Related task:** `IMP-021`.
+
+### GAP-017 — `/api/auth/me` returned no user identity (RESOLVED)
+- **Affected module:** Auth + the client app shell (all pages).
+- **Related requirement/ADR:** FR-AUTH-005, BRULE-AUTH-006; ADR-0003.
+- **Current state (before):** `AuthController.Me()` returned an anonymous `{ userId, roles }`; the client
+  therefore blanked `firstName`/`lastName`/`email` on every reload, so the shell could not name the
+  signed-in user (and staff had no profile endpoint to fall back on).
+- **Resolution (2026-09-10):** a typed `MeResponse` (id, email, first/last name, roles) is returned by
+  `GET /api/auth/me` via `AuthService.GetCurrentUserAsync()`, sourced from the Auth user record only (no
+  cross-module dependency). The client `me()` is typed and `AuthContext` hydrates from it. Read-only:
+  profile *editing* remains IMP-030.
+- **Verification:** API integration theory `SeededUser_CanLogin_AndMeReturnsOwnIdentity` asserts each seeded
+  role receives its own email, first name and role from `/me`; suite 47 passed / 0 failed, build 0 warnings.
+- **Priority:** P1 — resolved.
+- **Related task:** none (UI-readiness follow-up of the UI-blocking gap audit).
+
+### GAP-018 — No app shell / navigation foundation (RESOLVED)
+- **Affected module:** Frontend (all pages).
+- **Current state (before):** `App.tsx` mapped bare pages with no layout route; only the dashboard rendered a
+  topbar and sign-out; navigation was hand-rolled per page; `ProtectedRoute` silently redirected to `/`.
+- **Resolution (2026-09-10):** a single declarative manifest (`frontend/src/navigation.tsx`) now drives both
+  the sidebar and the route guards. `AppLayout.tsx` provides the shell — persistent sidebar (desktop),
+  collapsible drawer with scrim (mobile), sticky top bar carrying the section title and a user menu
+  (identity from `/auth/me`, role list, sign-out). A dedicated `/forbidden` view (`ForbiddenPage.tsx`) is
+  rendered inside the shell and `ProtectedRoute` redirects there instead of hiding the restriction.
+  The dashboard's duplicated topbar/sign-out was removed. Verified: `tsc -b && vite build` green,
+  `oxlint` 0 errors (5 pre-existing warnings).
+- **Priority:** P1 — resolved. **Related task:** IMP-007, IMP-026.
+
+### GAP-019 — No design-system foundation (RESOLVED)
+- **Affected module:** Frontend (all pages).
+- **Current state (before):** styling was one utility stylesheet with no tokens, no shared primitives and no
+  icon family.
+- **Progress (2026-09-10):** design tokens (colour, radius, spacing, elevation, sidebar width) now live on
+  `:root`, and the shell/`nav`/`icon-button`/`user-menu` primitives plus a first coherent icon family
+  (`components/Icon.tsx`, 24x24 stroke) exist.
+- **Resolution (2026-09-11):** [`frontend/src/index.css`](frontend/src/index.css) now carries the full primitive
+  set on the tokens — buttons (`.btn` + `--primary`/`--ghost`/`--danger`/`--sm`), fields (`.field` +
+  `.field-hint`), tables (`.table-wrap`/`.table`), the status pill
+  (`.pill--ok|warn|danger|info|muted`), alerts (`.alert--error|success|info`) and one empty/loading/error shape
+  (`.state`, `.state--empty`, `.state--loading`, `.state--error`). Legacy base styles
+  (`input`/`button`/`.panel`/`.badge`/`.muted`/`.table`/`.pill`/`.field`) were converted from raw hex to the
+  tokens (a few tint/strong tokens were added for the primitives), so the palette has a single source. Every
+  screen still using the pre-GAP-019 `.badge` chip was migrated to the status pill (`AdminUsersPage`,
+  `CommunicationPage`, `SecurityPage`), and the rebuilt Lease/Booking pages use the new state and alert
+  primitives.
+- **Icon family decision (recorded at the "revisit" point):** keep the in-house 24x24 stroke family
+  ([`Icon.tsx`](frontend/src/components/Icon.tsx:1)) rather than adopt an icon library — no extra
+  dependency/licensing surface, tree-shakeable, and the shapes already match the design language. Revisit only
+  if the icon set outgrows what hand-authoring keeps coherent.
+- **Verified:** `tsc -b && vite build` green; `oxlint` 0 errors / 4 pre-existing warnings.
+- **Priority:** P2 — resolved. **Related task:** IMP-007, IMP-026.
+
+### GAP-020 — Dashboard data unavailable (RESOLVED)
+- **Affected module:** Frontend dashboard / cross-module.
+- **Current state (before):** no aggregate endpoint existed and the dashboard page did no data fetch.
+- **Resolution (2026-09-10):** the dashboard composes its figures **client-side from existing role-scoped
+  endpoints** — no new API surface and no invented requirements. It now shows a role-appropriate KPI row
+  (resident: amount due / overdue / open requests; manager+admin: outstanding, overdue, open requests,
+  residents, units; accountant: collected, outstanding, overdue, reconciliation; technician: assigned,
+  high/urgent, all open; plus unread notifications), a "needs your attention" list (payment alerts, overdue
+  residents, high/urgent maintenance, out-of-balance reconciliation) and role-appropriate quick actions.
+  It refreshes on mount and on window focus (no polling) and renders a loading/empty/error state.
+- **Recorded decision:** occupancy totals are **not** shown — they would need an N+1 walk of buildings/units,
+  so plain unit counts are used and an occupancy aggregate is deferred pending requirement IDs.
+- **Priority:** P2 — resolved. **Related task:** IMP-007, IMP-052.
+
+### GAP-021 — Frontend API coverage incomplete (RESOLVED)
+- **Affected module:** Property, Resident, Maintenance, Lease, Booking.
+- **Current state (before):** the backend exposed detail/update/availability/attachment endpoints the typed
+  client did not call, so those screens were read-only or incomplete.
+- **Progress (2026-09-10):** **Property done** — `getProperty`, `updateProperty`, `updateBuilding`,
+  `getUnit`, `updateUnit` added to the client, and `PropertiesPage` gained inline edit flows for property,
+  building and unit (with proper field labels and consistent status pills replacing the emoji occupancy
+  marker). **Resident done** — `getResident`, `updateResident`, `moveOut` added, and `ResidentsPage` gained
+  an edit dialog, a move-out dialog with an optional date, labelled fields, status pills and empty/notice
+  states (the assign-unit dialog heading was also moved inside its form so the overlay renders correctly).
+- **Progress (2026-09-11):** **Maintenance done** — the client gained `getMaintenanceRequest`,
+  `setMaintenancePriority`, `uploadMaintenanceAttachment`, maintenance filters (`status`/`priority`) and an
+  optional comment on assign/status/confirm; the shared client now supports `FormData` bodies so multipart
+  uploads keep the browser-generated boundary instead of a JSON content type. `MaintenancePage` was rebuilt
+  around the server state machine (ADR-0009): role-aware filters, status/priority pills, a detail panel that
+  re-reads the request from `GET /maintenance/{id}` (attachments + history + timestamps), manager assign +
+  priority changes, technician start/complete, resident confirm/reopen/cancel, comment capture, attachment
+  upload for the requester/assignee/manager, and loading/empty/error/notice states. No backend change.
+- **Progress (2026-09-11):** **Lease done** — the client gained `updateLease`, `getLeaseDocuments` and
+  `uploadLeaseDocument` (multipart, so the browser boundary is preserved), `getLease` is now typed as
+  `LeaseDetailDto` (documents + version history) instead of `history: unknown[]`, and `getLeases` accepts a
+  status filter. `LeasesPage` was rebuilt around the lease lifecycle: role-aware status filter, a detail panel
+  that re-reads `GET /leases/{id}`, term updates (each save is a new version the API records), document
+  upload/list and terminate-with-reason, plus loading/empty/notice states. **Booking done** — the client gained
+  `getFacility`, `getAvailability` and `updateFacility`; `getBookings` now supports `facilityId`/`mineOnly`
+  filters and `createFacility` passes the cancellation window. `BookingsPage` was rebuilt: manager facility
+  create/edit (hours, slot length, cancellation window, active), per-facility availability for a chosen day
+  (free/booked slots), resident slot reservation with duration and overlap-aware start times, and
+  cancel-with-reason. Every state is read back from the API — the client never assumes a slot is free.
+- **Resolution:** all five modules now exercise the full endpoint surface. No backend change was required.
+- **Recorded decision:** availability is read per facility/day on demand (no polling or caching), so the
+  server's overlap check stays authoritative.
+- **Left to other tasks:** Maintenance *service-level automated coverage* is owed by IMP-040; this gap covered
+  the client/UI surface only.
+- **Verified:** `tsc -b && vite build` green; `oxlint` 0 errors / 4 pre-existing warnings.
+- **Priority:** P2 — resolved. **Related task:** IMP-003, IMP-004, IMP-005, IMP-022, IMP-024, IMP-026.
+
+### GAP-022 — No password reset/change UI (RESOLVED)
+- **Affected module:** Auth (login/account screens).
+- **Current state (before):** `change-password`, `forgot-password` and `reset-password` existed on the backend
+  but had no client methods, screens or routes.
+- **Resolution (2026-09-10):** the three client calls were added; `/forgot-password` and `/reset-password`
+  are public routes outside the shell (with a "Forgot your password?" link on the sign-in page) and
+  `/account/password` is an authenticated route reached from the user menu. Forms validate locally
+  (minimum length + confirmation match) and show field-level errors before any round trip. Because email
+  delivery is not configured (GAP-005), the reset token returned by the API is surfaced in a clearly marked
+  development panel rather than implying an email was sent.
+- **Incidental fix:** the shared API client treated any empty success body as a JSON parse error; it now
+  returns undefined for empty `200`/`204` responses, which the password/logout endpoints rely on.
+- **Priority:** P2 — resolved. **Related task:** IMP-001, IMP-007.
 
 ---
 

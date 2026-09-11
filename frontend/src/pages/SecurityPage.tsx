@@ -113,7 +113,19 @@ export default function SecurityPage() {
         <div key={v.id} className="panel">
           <div className="row space-between">
             <strong>{v.fullName}</strong>
-            <span className="badge">{v.status}</span>
+            <span
+              className={`pill pill--${
+                v.status === 'CheckedIn'
+                  ? 'ok'
+                  : v.status === 'CheckedOut'
+                    ? 'muted'
+                    : v.status === 'Cancelled'
+                      ? 'danger'
+                      : 'info'
+              }`}
+            >
+              {v.status}
+            </span>
           </div>
           <div className="muted">
             {v.propertyName} A· {v.unitNumber ?? 'n/a'} A· {v.phoneNumber ?? 'no phone'}
@@ -133,7 +145,7 @@ export default function SecurityPage() {
         <div key={g.id} className="panel">
           <div className="row space-between">
             <strong>{g.subjectName} → {g.targetName} ({g.targetType})</strong>
-            <span className="badge">{g.isActive ? 'Active' : 'Revoked'}</span>
+            <span className={`pill pill--${g.isActive ? 'ok' : 'muted'}`}>{g.isActive ? 'Active' : 'Revoked'}</span>
           </div>
           <div className="muted">
             {g.propertyName} A· Granted {new Date(g.grantedAt).toLocaleString()}

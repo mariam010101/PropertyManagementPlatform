@@ -13,8 +13,9 @@ export default function ProtectedRoute({ children, roles }: { children: ReactNod
     return <Navigate to="/login" replace />
   }
 
+  // Explain the restriction instead of silently bouncing to the dashboard (GAP-018).
   if (roles && !user.roles.some((r) => roles.includes(r))) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/forbidden" replace />
   }
 
   return <>{children}</>

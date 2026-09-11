@@ -159,14 +159,18 @@ public class AuthController : ControllerBase
         return result.ToActionResult();
     }
 
+    /// <summary>
+    /// The caller's own identity (id, email, name, roles) so the client can render the
+    /// signed-in user after a reload. Read-only; profile editing stays separate (IMP-030).
+    /// </summary>
     [HttpGet("me")]
     [Authorize]
-    public IActionResult Me()
+    public async Task<IActionResult> Me()
     {
-        return Ok(new
-        {
-            userId = _currentUser.Id,
-            roles = _currentUser.Roles,
-        });
+        var result = await _auth.GetCurrentUserAsync(_currentUser.Id);
+
+        return result.Succeeded
+            ? Ok(result.Data)
+            : Unauthorized(new { error = result.Error });
     }
 }

@@ -26,7 +26,12 @@ public class PaymentDbContext : DbContext
         builder.Entity<Invoice>(e =>
         {
             e.ToTable("invoices");
-            e.Property(i => i.Status).HasMaxLength(30).IsRequired();
+            // Persist the enum as its name so the stored value stays the readable
+            // lifecycle state (Open/PartiallyPaid/Paid/Overdue/Cancelled).
+            e.Property(i => i.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
+            e.Property(i => i.Currency).HasMaxLength(3).IsRequired();
+            e.Property(i => i.Purpose).HasMaxLength(30).IsRequired();
+            e.Property(i => i.CancellationReason).HasMaxLength(500);
             e.Property(i => i.Amount).HasPrecision(18, 2);
             e.Property(i => i.PaidAmount).HasPrecision(18, 2);
             e.HasIndex(i => i.ResidentUserId);

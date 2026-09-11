@@ -40,6 +40,9 @@ public interface IAuthService
     Task<Result> DeactivateUserAsync(Guid actorId, Guid userId);
 
     Task<Result> ActivateUserAsync(Guid actorId, Guid userId);
+
+    /// <summary>Identity of the authenticated caller (name/email/roles) for the client shell.</summary>
+    Task<Result<MeResponse>> GetCurrentUserAsync(Guid userId);
 }
 
 public class AuthService : IAuthService
@@ -65,6 +68,26 @@ public class AuthService : IAuthService
         _db = db;
         _tokens = tokens;
         _jwt = jwt.Value;
+    }
+
+    public async Task<Result<MeResponse>> GetCurrentUserAsync(Guid userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return Result.Fail<MeResponse>("User not found.");
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+
+        return Result.Ok(new MeResponse
+        {
+            UserId = user.Id,
+            Email = user.Email ?? string.Empty,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Roles = roles.ToList(),
+        });
     }
 
     public async Task<Result<AuthResponse>> RegisterResidentAsync(RegisterRequest request, string? ip)
