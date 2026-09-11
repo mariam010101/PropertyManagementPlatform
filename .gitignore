@@ -13,10 +13,11 @@ frontend/dist/
 # Runtime uploads
 src/PMP.Api/uploads/
 
-# Env / local config
+# Env / local config (never commit real secrets)
 *.local.json
 .env
-.env.local
+.env.*
+!.env.example
 
 # IDE
 .vscode/*
@@ -31,11 +32,25 @@ Thumbs.db
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
 *.sqlite
 *.sqlite3
-src/PMP.Api/appsettings.json
 
-docker-compose.yml
+# Local secrets / machine-specific configuration
+src/PMP.Api/appsettings.json
+src/PMP.Api/appsettings.*.local.json
+
+# Deployment overrides (keep Dockerfile / compose files committable)
+docker-compose.override.yml
+
+# Test and coverage output
+TestResults/
+[Tt]est[Rr]esults/
+coverage/
+*.trx
+
+# SPA build / tooling cache
+frontend/.vite/
 
 # Local runtime logs
 *.log

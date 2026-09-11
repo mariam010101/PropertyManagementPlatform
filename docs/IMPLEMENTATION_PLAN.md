@@ -1,12 +1,12 @@
 # PMP Implementation Progress
 
-Overall: 63%
+Overall: 67%
 MVP: 87%
 
-Completed: 1
+Completed: 4
 Verified: 2
-In Progress: 13
-Not Started: 9
+In Progress: 12
+Not Started: 7
 Blocked: 1
 Gaps: 3
 
@@ -29,8 +29,8 @@ Status vocabulary (§7 of the operating rules): `NOT_STARTED`, `IN_PROGRESS`, `B
 Dashboard counts: `Completed`/`Verified`/`In Progress`/`Not Started`/`Blocked`/`Gaps` count **tasks** by status
 (`Completed` = `COMPLETE`; `Verified` = `VERIFIED`, i.e. implemented + tested but with a documented
 open item; Gap status = `IMP-030`, `IMP-031`, `IMP-033`). Separately,
-[`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md) documents **22** gaps
-(GAP-001..GAP-022) — some gaps span multiple tasks.
+[`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md) documents **23** gaps
+(GAP-001..GAP-023) — some gaps span multiple tasks.
 
 > Correction (2026-09-10): the first published revision reported `Gaps: 4`, which double-counted one task.
 > The verified count is **3** tasks with status `GAP` (1 + 15 + 9 + 1 + 3 = 29 tasks).
@@ -45,7 +45,7 @@ acceptance criterion and is therefore reported below 100%.
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Solution builds | ✅ | `dotnet test PropertyManagement.sln` exit code 0 |
-| Test suite | ✅ 47 passed / 0 failed (24 unit + 23 API integration), 9 test files | [`tests/PMP.Tests`](tests/PMP.Tests) |
+| Test suite | ✅ 46 passed / 0 failed (23 unit + 23 API integration), 8 test files (placeholder `UnitTest1.cs` removed by IMP-050) | [`tests/PMP.Tests`](tests/PMP.Tests) |
 | MVP API integration harness | ✅ real Kestrel host + throwaway SQLite, driven over HTTP (no test-only hooks in the API) | [`PmpApiFixture.cs`](tests/PMP.Tests/Integration/PmpApiFixture.cs:1), [`MvpEndToEndApiTests.cs`](tests/PMP.Tests/Integration/MvpEndToEndApiTests.cs:1) |
 | Modules wired in host | ✅ 9 modules + shared kernel | [`Program.cs`](src/PMP.Api/Program.cs:35) |
 | Cross-module adapters | ✅ `IUnitOccupancyProvider`→`UnitOccupancyProvider`, `INotificationService`→`PersistedNotificationService` | [`Program.cs`](src/PMP.Api/Program.cs:49) |
@@ -58,20 +58,25 @@ acceptance criterion and is therefore reported below 100%.
 | Frontend | ✅ React 19 + TS + Vite, 12 pages, role-guarded routes | [`App.tsx`](frontend/src/App.tsx:25) |
 | Frontend tests | ❌ no test runner/script/deps | [`package.json`](frontend/package.json:6) |
 | CI/CD, Docker, deployment assets | ❌ none in repository root | repository listing |
-| Dead template scaffolding / placeholders | ⚠️ `Class1.cs` in 5 projects, `UnitTest1.cs`, [`body.json`](body.json) | [`src/`](src) |
+| Dead template scaffolding / placeholders | ✅ none — `Class1.cs` ×5, `UnitTest1.cs` and `body.json` removed, plus the unused `LoggingNotificationService` stub | repository listing (IMP-050, 2026-09-11) |
 | `TODO`/`FIXME`/`NotImplementedException` in `src/` | ✅ 0 matches | regex scan of [`src/`](src) |
+| Documentation consistency | ✅ ADR-0007 marked partially superseded; `FR-COM-006` corrected to PARTIAL; dev-plan drift banner + path fixed; README rewritten as the project entry point | IMP-051, 2026-09-11 |
+| Requirements traceability registry | ✅ [`docs/traceability.md`](docs/traceability.md) added; [`docs/README.md`](docs/README.md) index added | IMP-052, 2026-09-11 |
 
-**Documented state** (README, compliance audit, ADR-0012): 72/78 FRs MET, 2 PARTIAL, 5 NOT MET (BR-012);
-BR-001..BR-011 "implemented end-to-end".
-**Actual state**: the same code surface exists and compiles, but it is **not verified** by automated tests
-outside Maintenance/Property, has no integration/API test coverage, no CI, no frontend tests, and the
-BR-012 mobile platform does not exist. Progress therefore reflects verified implementation, not breadth.
+**Documented state** (compliance audit, ADR-0012): 71/78 FRs MET, 3 PARTIAL (FR-AUTH-005, FR-RBAC-006,
+FR-COM-006), 5 NOT MET (BR-012); BR-001..BR-011 have working modules.
+**Actual state**: the MVP slice is verified end-to-end over HTTP by the API integration suite (IMP-006), and
+the Payment request/obligation scope is verified by unit + API tests (IMP-020/021). The remaining post-MVP
+modules (Lease, Communication, Booking, Security) are implemented in code but have **no module-level tests**;
+there are no tests for the hosted background jobs or attachments, there is **no CI**, **no frontend test
+runner**, and the BR-012 mobile platform does not exist. Progress therefore reflects verified implementation,
+not breadth.
 
 ### Documented-state vs actual-code conflicts (recorded, not silently resolved)
 
 | # | Conflict | Resolution taken |
 | --- | --- | --- |
-| C-1 | ADR-0007 (MVP scope) is still `accepted` but ADR-0012 added the deferred modules and re-scoped MVP; the MVP definition also differs between ADR-0007 (no RBAC admin UI) and [`README.md`](README.md:130) (RBAC admin UI counted as MVP). | Newest approved ADR wins: ADR-0012 is authoritative for module scope; ADR-0007 remains authoritative for the MVP slice. Conflict recorded as GAP-010 (ADR-0007 not marked as superseded/incremented). |
+| C-1 | ADR-0007 (MVP scope) was still `accepted` while ADR-0012 added the deferred modules and re-scoped MVP; the MVP definition also differed between ADR-0007 (no RBAC admin UI) and [`README.md`](README.md) (RBAC admin UI counted as MVP). | **Resolved 2026-09-11 (IMP-051):** ADR-0007 is now marked *partially superseded by ADR-0012*; ADR-0012 is authoritative for module scope, ADR-0007 remains authoritative for the MVP slice, and the README states the MVP definition explicitly. |
 | C-2 | `plans/pmp-development-plan.md` locates the SPA at `src/frontend/`; the SPA actually lives at [`frontend/`](frontend). | Code is truth; doc drift recorded as GAP-010. |
 | C-3 | Property aggregate entity is [`ManagedProperty`](src/PMP.Modules.Property/Entities/ManagedProperty.cs:9) (`ManagedProperty` FK naming inside the Property module); older references (editor state, prose) use `Property`. | Code is truth; naming drift recorded as GAP-010. |
 | C-4 | Compliance audit marks FR-COM-006 (email + in-app notifications) 🟢 MET, but email is only *recorded* with a delivery status — no transport exists. | Recorded as GAP-005; FR-COM-006 downgraded to partial in this plan (IMP-023). |
@@ -84,8 +89,8 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | --- | --- | --- | --- |
 | MVP (IMP-001..007) | 60 | 52.3 | **87%** |
 | Post-MVP + remaining FRs (IMP-020..035) | 55 | 39.7 | 72% |
-| Cross-cutting: tests, CI, DevOps, security, docs (IMP-040..052) | 38 | 4.5 | 12% |
-| **Total** | **153** | **96.5** | **63%** |
+| Cross-cutting: tests, CI, DevOps, security, docs (IMP-040..052) | 38 | 10.0 | 26% |
+| **Total** | **153** | **102.0** | **67%** |
 
 ### Module / layer progress
 
@@ -186,9 +191,9 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | IMP-042 | CI pipeline: build + `dotnet test` + frontend lint/build on every push | DevOps | P2 | IMP-006, IMP-040 | — | NOT_STARTED | 0 | 4 |
 | IMP-043 | Deployment packaging: Dockerfile/compose or equivalent, production SQLite path, secrets/JWT config, environment matrix | DevOps | P2 | IMP-042 | ADR-0011 | NOT_STARTED | 0 | 5 |
 | IMP-044 | Security & NFR review and hardening: secrets handling, upload path safety, rate limiting/lockout tuning, HTTPS/HSTS, structured logging/observability | Security | P1 | IMP-001..005 | 0003, 0004 | NOT_STARTED | 0 | 6 |
-| IMP-050 | Remove template scaffolding and stray artifacts (`Class1.cs` ×5, `UnitTest1.cs`, [`body.json`](body.json)) | Tech debt | P3 | — | — | NOT_STARTED | 0 | 2 |
-| IMP-051 | Documentation sync: README status/paths, MVP definition (C-1), compliance-audit refresh, ADR-0007 superseded marker, `ManagedProperty` naming, BRULE-* coverage notes | Tech debt | P3 | — | ADR-0012 | NOT_STARTED | 0 | 2 |
-| IMP-052 | Traceability registry: REQ → ADR → IMP → code → API → test, kept current with this plan | Tech debt | P2 | — | — | IN_PROGRESS | 50 | 3 |
+| IMP-050 | Remove template scaffolding and stray artifacts (`Class1.cs` ×5, `UnitTest1.cs`, `body.json`, unused `LoggingNotificationService`) | Tech debt | P3 | — | — | COMPLETE | 100 | 2 |
+| IMP-051 | Documentation sync: README status/paths, MVP definition (C-1), compliance-audit refresh, ADR-0007 superseded marker, `ManagedProperty` naming, BRULE-* coverage notes | Tech debt | P3 | — | ADR-0012 | COMPLETE | 100 | 2 |
+| IMP-052 | Traceability registry: REQ → ADR → IMP → code → API → test, kept current with this plan | Tech debt | P2 | — | — | COMPLETE | 100 | 3 |
 
 **Acceptance criteria (abbreviated for tasks above 0%)**
 
@@ -197,8 +202,8 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 - **IMP-042:** pipeline runs on push/PR and fails on build/test/lint errors.
 - **IMP-043:** app runs from a clean container/packaged deployment with migrations + seed and no dev-only config.
 - **IMP-044:** findings documented; each accepted finding becomes a task or an explicit accepted risk.
-- **IMP-050/051:** repo contains no leftover scaffolding; docs match code with no open conflicts from §1.
-- **IMP-052:** every REQ/ADR in scope maps to at least one IMP task and evidence, or is recorded as a traceability gap.
+- **IMP-050/051:** ✅ met (2026-09-11) — the scaffolding/stray files and the unused notification stub were removed; ADR-0007 is marked partially superseded, `FR-COM-006` is corrected to PARTIAL, the historical development plan carries a drift banner and the README is rewritten as the project entry point.
+- **IMP-052:** ✅ met (2026-09-11) — [`docs/traceability.md`](docs/traceability.md) documents the identifier scheme and the BR → FR → BRULE → ADR → IMP → code → test chain, and [`docs/README.md`](docs/README.md) indexes every artefact; the live matrix in §7 remains the single copy.
 
 ## 7. Traceability matrix (requirement → ADR → task → code/API → test)
 
@@ -331,7 +336,7 @@ This plan is mirrored 1:1 to a single, continuously updated Confluence page:
 | Page ID | `27262978` |
 | Space | `PMP` (space id `688146`) |
 | URL | https://mariamghevondyan05-1785014440825.atlassian.net/wiki/spaces/PMP/pages/27262978/PMP+Implementation+Plan |
-| Created | 2026-09-10 (version 1); synchronized 2026-09-11 at version 5 |
+| Created | 2026-09-10 (version 1); synchronized 2026-09-11 at version 6 |
 | Update rule | Update this **same** page after every completed/verified task — never create a second implementation-plan page |
 
 Synchronization rule: `docs/IMPLEMENTATION_PLAN.md` and the Confluence page must always agree. If they diverge,
@@ -358,3 +363,4 @@ artifact (timeline/budget/risk/backlog) and must not be overwritten by this dash
 | 2026-09-11 | **`GAP-021` (Lease + Booking) done — GAP-021 now fully RESOLVED.** Lease: the client gained `updateLease`, `getLeaseDocuments` and `uploadLeaseDocument` (multipart, browser boundary preserved), `getLease` is now typed `LeaseDetailDto` (documents + version history) instead of `history: unknown[]`, and `getLeases` takes a status filter. `LeasesPage` rebuilt: role-aware status filter, detail panel that re-reads `GET /leases/{id}`, term updates (each save is a new API-recorded version), document upload/list and terminate-with-reason, plus loading/empty/notice states. Booking: the client gained `getFacility`, `getAvailability` and `updateFacility`; `getBookings` supports `facilityId`/`mineOnly` and `createFacility` now passes the cancellation window. `BookingsPage` rebuilt: manager facility create/edit (hours, slot length, cancellation window, active), per-facility availability for a chosen day (free/booked slots), resident slot reservation with duration and overlap-aware start times, and cancel-with-reason. **Verified:** frontend `tsc -b && vite build` green, `oxlint` 0 errors (4 pre-existing warnings, none in the new code); **behaviour smoke-tested against the running API (http://localhost:5070) with a real manager token** — `GET /api/leases` → 1 Active lease; `GET /api/leases/{id}` → `documents:[]`/`history:[]`; `GET /api/leases/{id}/documents` → 200 `[]`; `GET /api/bookings/facilities` → 1 facility (Community Gym, 60-min slots, 2h cancellation window); `GET /api/bookings/facilities/{id}` → detail; `GET /api/bookings/facilities/{id}/availability?date=…` → open 480 / close 1320 / slot 60 / 0 bookings; `GET /api/bookings` → 1. The check was **read-only** (only a login/refresh row was written) so no dev data was mutated. Backend unchanged. **Remaining:** none for GAP-021 (Maintenance *service-level* coverage stays with IMP-040). |
 | 2026-09-11 | **`GAP-019` RESOLVED** — the design system is complete. [`frontend/src/index.css`](frontend/src/index.css) now carries the full token-based primitive set: buttons (`.btn` + `--primary`/`--ghost`/`--danger`/`--sm`), fields (`.field` + `.field-hint`), tables (`.table-wrap`/`.table`), the status pill (`.pill--ok|warn|danger|info|muted`), alerts (`.alert--error|success|info`) and one empty/loading/error shape (`.state` + `--empty`/`--loading`/`--error`, with a `prefers-reduced-motion` guard); the legacy base styles were converted from raw hex to tokens (a few tint/strong tokens added) so the palette has a single source. Every remaining pre-GAP-019 `.badge` chip was migrated to the status pill (`AdminUsersPage`, `CommunicationPage`, `SecurityPage`), and `.error`/`.hint` are now aliases of the alert primitive so existing screens keep working. **Icon family decision recorded:** keep the in-house 24x24 stroke family ([`Icon.tsx`](frontend/src/components/Icon.tsx:1)) rather than adopt an icon library — no extra dependency/licensing surface, tree-shakeable, and the shapes already match the design language. **Verified:** frontend build green, `oxlint` 0 errors (4 pre-existing warnings). Overall 63% / MVP 87% carried over unchanged (the gap closures close no IMP acceptance criteria on their own). |
 | 2026-09-11 | **Confluence mirror synchronized — page v5.** The same page (`PMP Implementation Plan`, id `27262978`, space `PMP`) now records GAP-019 and GAP-021 as RESOLVED, the Lease + Booking checkpoint (client methods, rebuilt screens, read-only live API smoke checks), the icon-family decision and a v5 change-log entry; the page's module-table percentages were reconciled to this plan (Frontend 75%, Database/API 80%, IMP-026 75%, IMP-052 50%). Overall 63% / MVP 87% and the task counts are identical on both sides. No duplicate page was created. |
+| 2026-09-11 | **Documentation professionalization + repository hygiene (IMP-050, IMP-051, IMP-052 COMPLETE).** README rewritten as a system-analyst case study (overview, objectives, stakeholders, capabilities, analyst perspective, traceability, FR/NFR, architecture diagram, stack, structure, API, database, security, testing, ADRs, development approach, status, roadmap, run steps, documentation index, deliverables). Added [`docs/traceability.md`](docs/traceability.md) and [`docs/README.md`](docs/README.md); added [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md); replaced the frontend Vite-template README. Corrected `FR-COM-006` to PARTIAL (email record-only) in the compliance audit (roll-up 72→71 MET, 2→3 PARTIAL) and refreshed its date; marked ADR-0007 partially superseded by ADR-0012; fixed the glossary (`four`→nine module DbContexts) and the historical dev-plan drift (SPA path, schema wording) with a status banner. Removed `Class1.cs` ×5, `UnitTest1.cs`, `body.json` and the unused `LoggingNotificationService`; recorded `GAP-023` (repo-root-relative links inside `docs/` do not render on GitHub); extended `.gitignore` (test/coverage output, `.env.*`, `*.db-journal`, SPA cache) and stopped ignoring `docker-compose.yml` so deployment packaging (IMP-043) can be committed. Verified: `dotnet test PropertyManagement.sln` → **46 passed / 0 failed** (23 unit + 23 API integration), build 0 warnings / 0 errors. Dashboard: Completed 1→4, In Progress 13→12, Not Started 9→7; cross-cutting 12%→26%, **overall 63%→67%**, MVP 87% (unchanged). `GAP-010` RESOLVED. |

@@ -1,5 +1,14 @@
 # Property Management Platform — Sharpened Development Plan (MVP)
 
+> **Historical planning record.** This document captures the original MVP planning/grilling session and is kept
+> for provenance. Several details were superseded as the project progressed:
+> - the SPA lives at [`frontend/`](../frontend) (this record planned it at `src/frontend/`);
+> - the database is a single SQLite file with table-per-module ownership
+>   ([ADR-0011](../docs/adr/0011-sqlite-single-file-module-boundaries.md)), not PostgreSQL schema-per-module;
+> - the delivered scope is nine modules ([ADR-0012](../docs/adr/0012-post-mvp-modules.md)), not the four-module MVP.
+>
+> For the current, verified status use [`docs/IMPLEMENTATION_PLAN.md`](../docs/IMPLEMENTATION_PLAN.md).
+
 Source: Functional requirements pulled from Confluence (PMP space). Grilled via the
 "grill-me" interview process to resolve ambiguities and lock buildable decisions.
 
@@ -93,25 +102,24 @@ Mobile Platform Access (FR-MOBILE), and full RBAC administration (FR-RBAC).
 ## 5. Suggested Solution Structure (Modular Monolith)
 
 ```
-PropertyManagement/
+PropertyManagement/            # historical MVP layout — see README for the current tree
 ├── src/
 │   ├── PMP.Api/                 # Web API host, Program.cs, DI composition root
-│   ├── PMP.Shared/              # Shared kernel: BaseEntity, domain events, common
-│   │                            #   interfaces, result types, exceptions
-│   ├── PMP.Modules.Auth/        # Auth & User Management (schema: auth)
-│   ├── PMP.Modules.Property/    # Property Management (schema: property)
-│   ├── PMP.Modules.Resident/    # Resident Management (schema: resident)
-│   └── PMP.Modules.Maintenance/ # Maintenance Management (schema: maintenance)
-├── src/frontend/                # React SPA (Vite)
+│   ├── PMP.Shared/              # Shared kernel: BaseEntity, result types, exceptions
+│   ├── PMP.Modules.Auth/        # Auth & User Management
+│   ├── PMP.Modules.Property/    # Property Management
+│   ├── PMP.Modules.Resident/    # Resident Management
+│   └── PMP.Modules.Maintenance/ # Maintenance Management
+├── frontend/                    # React SPA (Vite) — planned here as src/frontend/
 ├── tests/                       # xUnit: unit + integration tests
-└── docs/                        # API contracts, data model
+└── docs/                        # ADRs, requirements, diagrams
 ```
 
 - Each module: Controllers → Application Services → Repositories → EF DbContext
-  bound to its own schema (per Confluence architecture pages).
+  owning its own tables (per Confluence architecture pages).
 - Shared identity/auth lives in the Auth module; other modules reference user
   identity via claims + module-level FK-to-auth only through public contracts.
-- EF Core migrations per module schema.
+- EF Core migrations per module (table ownership, not schema).
 
 ## 6. Post-MVP Modules (to grill in a later session)
 

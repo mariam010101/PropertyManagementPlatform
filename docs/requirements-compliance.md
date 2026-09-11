@@ -1,10 +1,10 @@
 # PMP — Functional Requirements Compliance Audit
 
-**Date:** 2026-09-03 (updated after the post-MVP module increment)
+**Date:** 2026-09-03 — **corrected 2026-09-11** (FR-COM-006 downgraded; see §8)
 **Source of truth:** Confluence space `PMP` — "Functional Requirements" (BR-001..BR-012) and "Business Rules" (BRULE-*) pages.
 **Verdict scale:** 🟢 MET · 🟡 PARTIAL · 🔴 NOT MET (not implemented).
 
-> **Headline result:** After the post-MVP increment all **12 business areas** now have working modules. BR-001..BR-011 are implemented in code with **only 1 requirement marked partial** (FR-RBAC-006, JWT claim latency) plus a small set of business-rule nuances. BR-012 (mobile platform) is **NOT MET** — the React web app is responsive but is not delivered as a dedicated mobile platform. Full per-FR traceability and code evidence are below.
+> **Headline result:** After the post-MVP increment all **12 business areas** have working modules. BR-001..BR-011 are implemented in code with **3 requirements marked partial** — FR-AUTH-005 (no dedicated owner profile-edit endpoint), FR-RBAC-006 (JWT role-claim latency) and FR-COM-006 (email is record-only) — plus a small set of business-rule nuances. BR-012 (mobile platform) is **NOT MET**: the React web app is responsive but is not delivered as a dedicated mobile platform. Full per-FR traceability and code evidence are below.
 
 ---
 
@@ -18,15 +18,15 @@
 | BR-004 Maintenance Management | Maintenance | 8 | 8 | 0 | 0 |
 | BR-005 Payment Management | Payment | 7 | 7 | 0 | 0 |
 | BR-006 Lease & Document Mgmt | Lease | 7 | 7 | 0 | 0 |
-| BR-007 Communication & Notifications | Communication | 6 | 6 | 0 | 0 |
+| BR-007 Communication & Notifications | Communication | 6 | 5 | 1 | 0 |
 | BR-008 User Roles & Permissions | Auth (RBAC) | 6 | 5 | 1 | 0 |
 | BR-009 Facility Booking Mgmt | Booking | 7 | 7 | 0 | 0 |
 | BR-010 Security & Visitor Mgmt | Security | 7 | 7 | 0 | 0 |
 | BR-011 Financial Reporting & Accountant | Payment (Financial) | 4 | 4 | 0 | 0 |
 | BR-012 Mobile Platform Access | — (responsive web only) | 5 | 0 | 0 | 5 |
-| **Total** | | **78** | **72** | **2** | **5** |
+| **Total** | | **78** | **71** | **3** | **5** |
 
-> Count note: BR-001 lists 8 FRs on its Confluence page (FR-AUTH-001..008). The FRs that were "partial" before the increment are now fully met (self-service profile update via resident edit path, occupancy history retention, property filtering, real persisted notifications); the two remaining partials are **FR-AUTH-005/BRULE-AUTH-006 (owner self-edit of identity fields not exposed as a dedicated endpoint)** and **FR-RBAC-006 (role revocation applies immediately to the DB but existing 15-minute JWTs keep old claims until expiry)**.
+> Count note: BR-001 lists 8 FRs on its Confluence page (FR-AUTH-001..008). The FRs that were "partial" before the increment are now fully met (self-service profile update via resident edit path, occupancy history retention, property filtering, real persisted notifications); the three remaining partials are **FR-AUTH-005 / BRULE-AUTH-006 (owner self-edit of identity fields not exposed as a dedicated endpoint)**, **FR-RBAC-006 (role revocation applies immediately to the DB but existing 15-minute JWTs keep old claims until expiry)** and **FR-COM-006 (email is recorded with a delivery status but no transport exists — see GAP-005)**.
 
 ---
 
@@ -153,7 +153,7 @@ Related rules: BRULE-COM-001..006.
 | FR-COM-003 | Display announcements to relevant residents | 🟢 MET | [`GetResidentAnnouncementsAsync()`](src/PMP.Modules.Communication/Services/CommunicationService.cs:236) filters by the resident's occupied property |
 | FR-COM-004 | Maintain notification history | 🟢 MET | `notifications` table retained |
 | FR-COM-005 | Users view previously received notifications | 🟢 MET | `GET /api/communication/notifications` + mark-read |
-| FR-COM-006 | Email and in-app notifications | 🟢 MET | `NotificationChannel` (`InApp`/`Email`); in-app delivered immediately, email recorded with delivery status |
+| FR-COM-006 | Email and in-app notifications | 🟡 PARTIAL | `NotificationChannel` (`InApp`/`Email`); in-app is delivered and retrievable, but the email channel is **record-only** — no SMTP/MailKit/SendGrid transport exists, so no message is ever sent (GAP-005). Correction applied 2026-09-11; the 2026-09-03 revision marked this 🟢 MET. |
 
 **BRULE-COM:** 001 intended recipients only 🟢 · 002 triggered by predefined business events 🟢 · 003 property-relevant announcements 🟢 · 004 history retained 🟢 · 005 only authorized publish 🟢 · 006 delivery status recorded 🟢.
 
@@ -225,4 +225,5 @@ Rules: FR-SEC-001..007 (no BRULE page published yet).
 3. **FR-AUTH-005 / BRULE-AUTH-006** — expose a dedicated "edit my profile" endpoint that also updates Identity name fields.
 4. **BRULE-AUTH-005** — add a distinct "suspended" account state if required.
 5. **BRULE-LEASE-001** — enforce "active resident must have a lease" as a hard invariant.
-6. **Hardening (non-FR-blocking):** validate Technician role on maintenance assignment; validate manager role on property create; publish BRULE pages for BR-009/010 if desired.
+6. **FR-COM-006** — implement a provider-backed email sender (config-driven, disabled by default) and record real delivery outcomes, or explicitly descope email delivery with an ADR and keep this audit at PARTIAL.
+7. **Hardening (non-FR-blocking):** validate Technician role on maintenance assignment; validate manager role on property create; publish BRULE pages for BR-009/010 if desired.

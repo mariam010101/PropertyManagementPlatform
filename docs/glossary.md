@@ -80,7 +80,7 @@ A single deployable application internally organized into modules. Boundaries ar
 _Avoid_: microservice, big ball of mud
 
 **Schema**:
-Database namespace separating modules. Removed with the SQLite migration — the four module DbContexts (`auth`, `property`, `resident`, `maintenance`) now own distinct tables in the shared `pmp.db`.
+A database namespace that could separate modules. Not used in the current deployment: after the SQLite migration (ADR-0011) each of the nine module `DbContext`s owns a **distinct set of tables** inside the single shared `pmp.db`, so the module boundary is enforced by table ownership rather than by a schema.
 _Avoid_: database namespace
 
 **Composition root**:
@@ -89,3 +89,38 @@ _Avoid_: service locator
 
 **Result pattern**:
 Services signal expected outcomes via a `Result`/`Result<T>` value instead of throwing exceptions for ordinary failures.
+
+## Requirements and analysis terms
+
+**Business Requirement (BR)**:
+A high-level business need the platform must satisfy (BR-001..BR-012). BRs are the top of the
+traceability chain and are owned by the stakeholder/product source, not by the code.
+
+**Functional Requirement (FR)**:
+A specific behaviour the system must provide to satisfy a BR, identified as `FR-<AREA>-NNN`
+(e.g. `FR-AUTH-001`). FRs are the unit the compliance audit and the traceability matrix map to code and tests.
+
+**Non-Functional Requirement (NFR)**:
+A quality constraint on the system (security, performance, availability, maintainability). Platform NFRs are
+currently **not** assigned requirement IDs — recorded as a traceability gap (GAP-013), not invented.
+
+**Business Rule (BRULE-<AREA>-NNN)**:
+An invariant or policy that must always hold (e.g. `BRULE-PAY-002` unique transaction reference), enforced in
+the service layer and asserted by tests where coverage exists.
+
+**User Story / Use Case**:
+A user-centred description of a business interaction. Use cases carry actor, preconditions, main flow,
+alternative flow and postconditions; the platform's use cases are captured in Confluence and summarised in the
+repository rather than duplicated.
+
+**Acceptance Criteria**:
+The conditions that must be provably true before a task is `COMPLETE`. Recorded per task in the implementation
+plan; incomplete criteria keep the task unchecked.
+
+**Traceability**:
+The maintained chain BR → FR → ADR → task (IMP-XXX) → code/API → test, plus the gap register (GAP-XXX) for
+anything that breaks it. See [`docs/traceability.md`](traceability.md).
+
+**Actor / Stakeholder**:
+An actor is a role that interacts with the system (Resident, Property Manager, Technician, Administrator,
+Accountant); a stakeholder is anyone with an interest in it (actors plus owners and operators).

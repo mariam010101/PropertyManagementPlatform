@@ -1,6 +1,6 @@
 # PMP Implementation Gap Analysis
 
-**Last Updated:** 2026-09-11 08:55 UTC (2026-09-11 12:55 Asia/Yerevan)
+**Last Updated:** 2026-09-11 09:54 UTC (2026-09-11 13:54 Asia/Yerevan)
 **Companion document:** [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
 **Method:** every item below was identified by comparing approved requirements/ADRs
 ([`docs/adr/`](docs/adr/), [`docs/requirements-compliance.md`](docs/requirements-compliance.md),
@@ -12,7 +12,7 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 
 | GAP | Title | Module | REQ / ADR | Priority | Related task | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| GAP-001 | Automated test coverage is still thin outside the MVP API slice: 21 tests total (12 API integration for the MVP + 9 unit); no Resident/Payment/Lease/Communication/Booking/Security service tests, no frontend tests, no lockout/background-job tests | Cross-module | all FR sets; ADR-0005 | P1 | IMP-040, IMP-041 | IN_PROGRESS |
+| GAP-001 | Automated test coverage is still thin outside the verified slices: 46 tests total (23 unit + 23 API integration) after the Payment work; no Resident/Lease/Communication/Booking/Security service tests, no background-job/attachment tests, no frontend tests | Cross-module | all FR sets; ADR-0005 | P1 | IMP-040, IMP-041 | IN_PROGRESS |
 | GAP-002 | Mobile platform access not implemented (no native app or PWA; responsive web only) | Mobile | FR-MOBILE-001..005; ADR-0007, ADR-0012 | P2 | IMP-027 | NOT_STARTED (deferred) |
 | GAP-003 | Role revocation does not apply to already-issued 15-minute JWTs | Auth | FR-RBAC-006, BRULE-RBAC-006; ADR-0003/0004 | P1 | IMP-031 | GAP |
 | GAP-004 | No dedicated owner "edit my profile" endpoint that mutates Identity name fields | Auth | FR-AUTH-005, BRULE-AUTH-006 | P1 | IMP-030 | GAP |
@@ -21,7 +21,7 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 | GAP-007 | Role validation missing on two write paths: maintenance assignment does not verify the assignee is a Technician; property create does not verify the manager is a Property Manager | Maintenance / Property | BRULE-MNT-003, BRULE-PROP-003; ADR-0006 | P3 | IMP-034 | GAP |
 | GAP-008 | No distinct "suspended" account state (only active/inactive) — requires a product decision on BRULE-AUTH-005 wording | Auth | BRULE-AUTH-005 | P3 | IMP-032 | BLOCKED |
 | GAP-009 | No CI/CD pipeline and no deployment packaging (no `.github/`, Dockerfile, compose, environment matrix, production config/secrets strategy) | DevOps | — (ADR-0011 deployment surface) | P2 | IMP-042, IMP-043 | GAP |
-| GAP-010 | Documentation drift: `plans/pmp-development-plan.md` points the SPA at `src/frontend/` (actual: [`frontend/`](frontend)); ADR-0007 remains `accepted` although ADR-0012 re-scoped the roadmap; MVP definition differs between ADR-0007 and [`README.md`](README.md:130); aggregate entity is `ManagedProperty` while other text says `Property`; compliance audit not refreshed since 2026-09-03 | Docs | ADR-0007, ADR-0012 | P3 | IMP-051 | GAP |
+| GAP-010 | Documentation drift: `plans/pmp-development-plan.md` points the SPA at `src/frontend/` (actual: [`frontend/`](frontend)); ADR-0007 remains `accepted` although ADR-0012 re-scoped the roadmap; MVP definition differs between ADR-0007 and [`README.md`](README.md); aggregate entity is `ManagedProperty` while other text says `Property`; compliance audit not refreshed since 2026-09-03 | Docs | ADR-0007, ADR-0012 | P3 | IMP-051 | RESOLVED |
 | GAP-011 | No BRULE pages published for BR-009 (Booking) / BR-010 (Security), leaving those FR sets without business-rule traceability | Docs / Requirements | FR-BOOK-001..007, FR-SEC-001..007 | P3 | IMP-035 | GAP |
 | GAP-012 | Payment is simulated: no payment-provider integration, so FR-PAY-002 "pay electronically" is satisfied only in the demo sense (no reversal/refund, no idempotency keys, no provider webhooks) | Payment | FR-PAY-002, FR-PAY-003; ADR-0012 (trade-off) | P2 | IMP-020 | GAP |
 | GAP-015 | Single-currency assumption: a payment request now stores and displays `Currency`, but there is no FX, no per-property currency configuration, and balances/reports sum across currencies without conversion | Payment | FR-PAY-001..007; ADR-0012 | P3 | IMP-020 | GAP |
@@ -34,6 +34,7 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 | GAP-022 | No password reset/change UI or client methods although the backend endpoints exist | Auth | FR-AUTH-003, FR-AUTH-004; ADR-0003 | P2 | IMP-001, IMP-007 | RESOLVED |
 | GAP-013 | Platform NFRs (performance, availability, backup/restore of `pmp.db`, observability) have no requirement IDs and no verification — pure traceability gap | Cross-cutting | none exist | P3 | IMP-044, IMP-052 | GAP |
 | GAP-014 | Maintenance notifications carry no request context (the request title is absent from the persisted payload), so a resident cannot identify which request a notification refers to | Maintenance / Communication | FR-MNT-005, FR-COM-001 | P3 | IMP-040 | GAP |
+| GAP-023 | Internal `docs/` links are written repo-root-relative and with `:line` suffixes, so they do not resolve when rendered on GitHub (which resolves relative to the containing file and uses `#Lnnn`) | Docs | — | P3 | IMP-051, IMP-052 | GAP |
 
 ---
 
@@ -45,14 +46,14 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 - **Current state:** `IMP-006` (2026-09-10) added 12 API integration tests and `IMP-020`/`IMP-021`
   (2026-09-10) added 15 Payment service unit tests
   ([`PaymentServiceTests.cs`](tests/PMP.Tests/PaymentServiceTests.cs:1)) plus 11 Payment API integration tests
-  ([`PaymentApiTests.cs`](tests/PMP.Tests/Integration/PaymentApiTests.cs:1)). The suite is now 47 passed /
-  0 failed (24 unit + 23 API integration). Still uncovered: service-level tests for
+  ([`PaymentApiTests.cs`](tests/PMP.Tests/Integration/PaymentApiTests.cs:1)). The suite is now 46 passed /
+  0 failed (23 unit + 23 API integration) after the empty `UnitTest1.cs` placeholder was removed by `IMP-050`
+  (2026-09-11). Still uncovered: service-level tests for
   Resident/Lease/Communication/Booking/Security, the maintenance 7-day auto-close job, the lease/due-date
-  background sweeps, attachment upload, and all frontend behaviour
-  ([`UnitTest1.cs`](tests/PMP.Tests/UnitTest1.cs) placeholder still present).
+  background sweeps, attachment upload, and all frontend behaviour.
 - **What remains:** add the remaining per-module service tests reusing the
   [`TestDoubles.cs`](tests/PMP.Tests/TestDoubles.cs) pattern, add tests for the three hosted services,
-  remove the placeholder, and stand up frontend testing.
+  and stand up frontend testing.
 - **Priority:** P1.
 - **Related tasks:** `IMP-040` (per-module expansion, next task), `IMP-041` (frontend), `IMP-042` (CI).
 
@@ -133,23 +134,33 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 ### GAP-009 — No CI/CD or deployment packaging
 - **Affected module:** DevOps / repository root.
 - **Related requirement/ADR:** none (engineering enabler); ADR-0011 defines the SQLite deployment surface.
-- **Current state:** no `.github/` workflows, no Dockerfile/compose, no documented environment matrix; the app
-  relies on `appsettings.Development.json` + seed data and a local `pmp.db`.
+- **Current state:** no `.github/` workflows, no Dockerfile/compose for the current stack, no documented
+  environment matrix; the app relies on `appsettings.Development.json` + seed data and a local `pmp.db`.
+  A **stale, previously git-ignored `docker-compose.yml`** (PostgreSQL 16 with default `postgres/postgres`
+  credentials — the pre-SQLite provisioning superseded by ADR-0011) was found untracked during the
+  2026-09-11 hygiene pass and **removed**; the `.gitignore` rule that hid it was replaced with a
+  `docker-compose.override.yml` rule so a current packaging file (IMP-043) can be committed.
 - **What remains:** CI running build + `dotnet test` + frontend lint/build on push; a packaging path that runs
   migrations and seed without dev-only config; documented secrets/production configuration.
 - **Priority:** P2.
 - **Related tasks:** `IMP-042`, `IMP-043`.
 
-### GAP-010 — Documentation drift
+### GAP-010 — Documentation drift (RESOLVED)
 - **Affected module:** docs / repo layout.
 - **Related requirement/ADR:** ADR-0007 (status not updated after ADR-0012), ADR-0012.
-- **Current state:** see conflicts C-1..C-3 in §1 of the plan — `src/frontend/` vs [`frontend/`](frontend);
-  ADR-0007 still `accepted` while ADR-0012 supersedes its roadmap consequences; MVP definition mismatch between
-  ADR-0007 (MVP excludes the RBAC admin UI) and [`README.md`](README.md:130) (RBAC admin UI listed as MVP);
-  `ManagedProperty` vs `Property` naming; compliance audit last refreshed 2026-09-03 and now inaccurate on
+- **Current state (before):** see conflicts C-1..C-3 in §1 of the plan — `src/frontend/` vs [`frontend/`](frontend);
+  ADR-0007 `accepted` while ADR-0012 supersedes its roadmap consequences; MVP definition mismatch between
+  ADR-0007 (MVP excludes the RBAC admin UI) and the older README (RBAC admin UI listed as MVP);
+  `ManagedProperty` vs `Property` naming; compliance audit last refreshed 2026-09-03 and inaccurate on
   FR-COM-006 (C-4).
-- **What remains:** a single documentation sync pass once MVP verification (IMP-006) establishes fresh evidence.
-- **Priority:** P3.
+- **Resolution (2026-09-11, `IMP-051`):** README rewritten and aligned to ADR-0007/ADR-0012; ADR-0007 marked
+  *partially superseded by ADR-0012*; the historical development plan carries a status banner and its
+  `src/frontend/` path drift is corrected; the glossary no longer says "four module DbContexts"; the compliance
+  audit was corrected for FR-COM-006 (and its roll-up recomputed to 71 MET / 3 PARTIAL / 5 NOT MET). The
+  `ManagedProperty` naming is documented in the README as "code is authoritative".
+- **Verification:** all relative links in the rewritten README/docs index resolved; `dotnet test` unaffected
+  (46 passed / 0 failed).
+- **Priority:** P3 — resolved.
 - **Related task:** `IMP-051`.
 
 ### GAP-011 — No business-rule documentation for BR-009/BR-010
@@ -202,6 +213,21 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
   these as engineering standards; then verify whichever is agreed (health check, logging, backup procedure).
 - **Priority:** P3.
 - **Related tasks:** `IMP-044`, `IMP-052`.
+
+### GAP-023 — Internal documentation links do not resolve on GitHub
+- **Affected module:** docs.
+- **Related requirement/ADR:** none (documentation quality).
+- **Current state:** links inside `docs/` are written **repo-root-relative** and with `:line` suffixes
+  (for example a link target of `src/PMP.Api/Program.cs:35`, or `docs/adr/`). GitHub resolves a relative link
+  against the containing file and expects `#Lnnn` for lines, so from `docs/` these targets render as broken;
+  they are authored for the in-editor agent workflow and are consistent with the project's operating rules.
+- **What remains:** decide the convention and apply it consistently — either rewrite the `docs/` links as
+  file-relative paths (and `#Lnnn` anchors) so they render on GitHub, or keep the root-relative convention and
+  accept that GitHub markdown is a secondary surface (the plan is mirrored to Confluence). Links in the
+  repository-root and top-level documents (README, CONTRIBUTING, SECURITY, `docs/README.md`,
+  `docs/traceability.md`) are already file-relative and render correctly.
+- **Priority:** P3.
+- **Related tasks:** `IMP-051`, `IMP-052`.
 
 ### GAP-015 — Single-currency assumption
 - **Affected module:** Payment.
