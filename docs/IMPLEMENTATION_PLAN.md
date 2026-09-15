@@ -1,16 +1,16 @@
 # PMP Implementation Progress
 
-Overall: 74%
+Overall: 77%
 MVP: 89%
 
-Completed: 6
+Completed: 8
 Verified: 2
 In Progress: 11
 Not Started: 7
 Blocked: 1
-Gaps: 3
+Gaps: 1
 
-Last Updated: 2026-09-14
+Last Updated: 2026-09-15
 
 Next Recommended Task: IMP-041
 
@@ -28,7 +28,7 @@ Status vocabulary (§7 of the operating rules): `NOT_STARTED`, `IN_PROGRESS`, `B
 
 Dashboard counts: `Completed`/`Verified`/`In Progress`/`Not Started`/`Blocked`/`Gaps` count **tasks** by status
 (`Completed` = `COMPLETE`; `Verified` = `VERIFIED`, i.e. implemented + tested but with a documented
-open item; Gap status = `IMP-030`, `IMP-031`, `IMP-033`). Separately,
+open item; Gap status = `IMP-033`). Separately,
 [`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md) documents **25** gaps
 (GAP-001..GAP-025) — some gaps span multiple tasks.
 
@@ -88,15 +88,15 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | Group | Weight | Earned | % |
 | --- | --- | --- | --- |
 | MVP (IMP-001..007) | 60 | 53.1 | **89%** |
-| Post-MVP + remaining FRs (IMP-020..035, IMP-053) | 61 | 45.7 | 75% |
+| Post-MVP + remaining FRs (IMP-020..035, IMP-053) | 61 | 50.2 | **82%** |
 | Cross-cutting: tests, CI, DevOps, security, docs (IMP-040..052) | 38 | 19.0 | 50% |
-| **Total** | **159** | **117.8** | **74%** |
+| **Total** | **159** | **122.3** | **77%** |
 
 ### Module / layer progress
 
 | Area | Weight basis | % | Primary blocker to reaching 100% |
 | --- | --- | --- | --- |
-| Auth (BR-001, BR-008) | IMP-001, IMP-002, IMP-030, IMP-031, IMP-032 | 66% | unit-level lockout tests, owner profile endpoint, JWT revocation latency, blocked suspension state |
+| Auth (BR-001, BR-008) | IMP-001, IMP-002, IMP-030, IMP-031, IMP-032 | 85% | unit-level lockout tests, blocked suspension state |
 | Property (BR-003) | IMP-003 | 90% | no manager-role validation on create; duplicate-unit rule covered by unit test only |
 | Resident (BR-002) | IMP-004 | 95% | search/profile-edit paths not exercised at unit level; occupancy-history retention now covered by `ResidentServiceTests` |
 | Maintenance (BR-004) | IMP-005 | 95% | 7-day auto-close job and attachment path untested |
@@ -110,7 +110,7 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | Frontend (web) | IMP-007, IMP-026, IMP-041 | 75% | no frontend test tooling |
 | Database/API | migrations + endpoint surface | 80% | MVP surface verified end-to-end; post-MVP endpoints unverified |
 | Testing | IMP-006, IMP-040, IMP-041 | 70% | all nine modules have service tests (IMP-040); background-job/attachment paths and frontend tests still missing |
-| Security (NFR/hardening) | IMP-031, IMP-034, IMP-044 | 0% | no review performed, no hardening tasks started |
+| Security (NFR/hardening) | IMP-031, IMP-034, IMP-044 | 27% | role-revocation fixed (IMP-031); remaining hardening tasks not started |
 | DevOps | IMP-042, IMP-043 | 0% | no pipeline, no packaging/deployment assets |
 
 ## 3. Scope boundaries
@@ -160,8 +160,8 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | IMP-025 | Security & visitors: visitor register/check-in/out, access grants with expiry, logs | Security | P2 | IMP-003, IMP-024 | FR-SEC-001..007 | 0012 | IN_PROGRESS | 70 | 6 |
 | IMP-026 | Frontend post-MVP pages/routes (payments, leases, communication, bookings, security) | Frontend | P2 | IMP-020..025 | FR-PAY/LEASE/COM/BOOK/SEC sets | — | NEEDS_REVIEW | 75 | 8 |
 | IMP-027 | Mobile platform access (native app or PWA) on the existing API | Mobile | P2 | IMP-007, IMP-026 | FR-MOBILE-001..005 | 0007, 0012 | NOT_STARTED (deferred) | 0 | 12 |
-| IMP-030 | Dedicated owner "edit my profile" endpoint that also updates Identity name fields | Auth | P1 | IMP-001 | FR-AUTH-005, BRULE-AUTH-006 | 0003 | GAP | 25 | 2 |
-| IMP-031 | Immediate role-revocation: short access-token TTL + per-request active-role recheck or security stamp | Auth | P1 | IMP-002 | FR-RBAC-006, BRULE-RBAC-006 | 0003, 0004 | GAP | 0 | 3 |
+| IMP-030 | Dedicated owner "edit my profile" endpoint that also updates Identity name fields | Auth | P1 | IMP-001 | FR-AUTH-005, BRULE-AUTH-006 | 0003 | COMPLETE | 100 | 2 |
+| IMP-031 | Immediate role-revocation: per-request active-role recheck of already-issued JWTs | Auth | P1 | IMP-002 | FR-RBAC-006, BRULE-RBAC-006 | 0003, 0004 | COMPLETE | 100 | 3 |
 | IMP-032 | Distinct "suspended" account state (if the requirement is confirmed) | Auth | P3 | — | BRULE-AUTH-005 | — | BLOCKED | 0 | 1 |
 | IMP-033 | Enforce "active resident must have an active lease" as a hard invariant | Lease/Resident | P2 | IMP-022 | BRULE-LEASE-001 | 0012 | GAP | 0 | 2 |
 | IMP-034 | Hardening: validate Technician role on maintenance assignment; validate manager role on property create | Maintenance/Property | P3 | IMP-003, IMP-005 | BRULE-MNT-003, BRULE-PROP-003 | 0006 | NOT_STARTED | 0 | 2 |
@@ -171,15 +171,15 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 
 - **IMP-020:** ✅ met for the request/obligation scope (2026-09-10) — every payment a resident owes is a persisted request/order carrying resident, amount, currency, purpose, due date, status and creation date; the backend computes the amount currently due / overdue / upcoming per user; the explicit lifecycle is `Open → PartiallyPaid → Paid` with `Overdue` and `Cancelled`; declined attempts are recorded as `Failed` transactions and preserved. Verified by 15 unit tests ([`PaymentServiceTests.cs`](tests/PMP.Tests/PaymentServiceTests.cs:1)) and 11 API integration tests ([`PaymentApiTests.cs`](tests/PMP.Tests/Integration/PaymentApiTests.cs:1)). **Open (not part of this task):** real payment-provider integration — see GAP-012.
 - **IMP-021:** ✅ met except export (2026-09-10) — report/reconciliation/outstanding endpoints are restricted to the `Financial` policy; the Accountant can read financial records but is rejected (403) from property/maintenance data (test: `Accountant_ReadsFinancials_ButIsRestrictedFromNonFinancialModules`). **Open:** an export format is still neither defined nor tested (GAP-016).
-- **IMP-053:** ✅ met (2026-09-14) — a successful payment creates exactly one `PaymentInvoice` (unique FK to the payment) with a deterministic `INV-YYYY-NNNNNN` number; failed/declined payments create none; a paid request cannot be paid again (no duplicate); residents read only their own invoices; the Accountant/manager/admin listing is scoped (manager → own properties) and policy-restricted (403 for resident/technician); the database enforces unique `PaymentTransactionId` and `InvoiceNumber`. Verified by unit + SQLite-constraint + API integration tests — full suite 116 passed / 0 failed; frontend `InvoicesPage` added with build/lint green. **Out of scope (future):** PDF export (GAP-025), email delivery.
+- **IMP-053:** ✅ met (2026-09-14) — a successful payment creates exactly one `PaymentInvoice` (unique FK to the payment) with a deterministic `INV-YYYY-NNNNNN` number; failed/declined payments create none; a paid request cannot be paid again (no duplicate); residents read only their own invoices; the Accountant/manager/admin listing is scoped (manager → own properties) and policy-restricted (403 for resident/technician); the database enforces unique `PaymentTransactionId` and `InvoiceNumber`. Verified by unit + SQLite-constraint + API integration tests — full suite 116 passed / 0 failed; frontend `InvoicesPage` added with build/lint green. **Out of scope (future):** email delivery (GAP-025 CSV export added 2026-09-15; PDF remains unbuilt).
 - **IMP-022:** each lease change creates a version row; documents access-controlled; expiry sweep marks past-end leases and notices within 30 days; test coverage added.
 - **IMP-023:** notification history queryable with delivery status; announcements filtered to the resident's property; email transport decision recorded (implement or explicitly descope FR-COM-006 email delivery).
 - **IMP-024:** overlap rejection and cancellation-window rules unit-tested (SQLite client-side evaluation documented in ADR-0012).
 - **IMP-025:** visitor check-in/out times recorded; expired grants treated as expired; access log immutable; role/ownership decision recorded (currently Property Manager/Admin act as security operator).
 - **IMP-026:** each post-MVP page enforces the same server-side role guard as its endpoints.
 - **IMP-027:** not to be started until IMP-040 is green (IMP-006 is complete).
-- **IMP-030:** owner can update own name/profile; Identity `FirstName`/`LastName` (or equivalent) updated; audit event recorded; test covers self vs other-user access.
-- **IMP-031:** revoking a role takes effect on the next request (≤1 request latency), with a test proving an old token cannot use the removed role.
+- **IMP-030:** ✅ met (2026-09-15) — `PUT /api/auth/me` updates the caller's own Identity `FirstName`/`LastName`/`PhoneNumber`, records a `ProfileUpdated` audit event, and syncs the resident profile; it is caller-scoped by construction. Verified by [`ProfileUpdateApiTests`](tests/PMP.Tests/Integration/ProfileUpdateApiTests.cs:11) (401 unauthenticated; self-edit reflected in `/api/auth/me` and `/api/residents/me`; another user's identity untouched).
+- **IMP-031:** ✅ met (2026-09-15) — the JWT bearer handler re-loads the caller's current roles (and active state) on every request and replaces stale role claims, so revoking a role takes effect on the next request (≤1 request latency). Verified by [`RoleRevocationApiTests`](tests/PMP.Tests/Integration/RoleRevocationApiTests.cs:10): an issued technician token stops authorizing `GET /api/maintenance` (403) after the Technician role is removed.
 - **IMP-032:** requires a product decision on BRULE-AUTH-005 (whether "suspended" is a distinct state or satisfied by active/inactive). Do not implement until answered.
 - **IMP-033:** assignment/creation paths reject state where an active resident has no lease; decision recorded on retroactive data handling.
 - **IMP-034:** assigning a non-Technician user is rejected; creating a property for a non-manager user is rejected; tests added.
@@ -213,8 +213,8 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 
 | Requirement set | ADR | Task(s) | API | Code | Test |
 | --- | --- | --- | --- | --- | --- |
-| FR-AUTH-001..008 | 0003, 0008 | IMP-001, IMP-030 | [`AuthController.cs`](src/PMP.Api/Controllers/AuthController.cs:28) | [`AuthService.cs`](src/PMP.Modules.Auth/Services/AuthService.cs), [`TokenService.cs`](src/PMP.Modules.Auth/Services/TokenService.cs) | ✅ API integration (IMP-006) + 4 token unit tests (IMP-040): login/confirm gate/refresh/logout, token signature/expiry/subject/roles; ⚠️ lockout untested |
-| FR-RBAC-001..006 | 0004 | IMP-002, IMP-031 | [`AuthController.cs`](src/PMP.Api/Controllers/AuthController.cs:127) | [`AppPolicies.cs`](src/PMP.Shared/Common/AppPolicies.cs), [`AppRoles.cs`](src/PMP.Shared/Common/AppRoles.cs:8) | ✅ API integration (IMP-006): anonymous 401 + per-role 403; ⚠️ full policy matrix untested |
+| FR-AUTH-001..008 | 0003, 0008 | IMP-001, IMP-030 | [`AuthController.cs`](src/PMP.Api/Controllers/AuthController.cs:28) | [`AuthService.cs`](src/PMP.Modules.Auth/Services/AuthService.cs), [`TokenService.cs`](src/PMP.Modules.Auth/Services/TokenService.cs) | ✅ API integration (IMP-006) + 4 token unit tests (IMP-040): login/confirm gate/refresh/logout, token signature/expiry/subject/roles; ✅ own-profile update (IMP-030); ⚠️ lockout untested |
+| FR-RBAC-001..006 | 0004 | IMP-002, IMP-031 | [`AuthController.cs`](src/PMP.Api/Controllers/AuthController.cs:127) | [`AppPolicies.cs`](src/PMP.Shared/Common/AppPolicies.cs), [`AppRoles.cs`](src/PMP.Shared/Common/AppRoles.cs:8) | ✅ API integration (IMP-006): anonymous 401 + per-role 403; ✅ role revocation on next request (IMP-031); ⚠️ full policy matrix untested |
 | FR-PROP-001..007 | 0006, 0010, 0011 | IMP-003, IMP-034 | [`PropertiesController.cs`](src/PMP.Api/Controllers/PropertiesController.cs:25) | [`PropertyService.cs`](src/PMP.Modules.Property/Services/PropertyService.cs) | ✅ API integration (IMP-006) + 2 unit tests ([`PropertyServiceTests.cs`](tests/PMP.Tests/PropertyServiceTests.cs:10)) |
 | FR-RES-001..007 | 0008, 0010 | IMP-004 | [`ResidentsController.cs`](src/PMP.Api/Controllers/ResidentsController.cs:24) | [`ResidentService.cs`](src/PMP.Modules.Resident/Services/ResidentService.cs), [`UnitOccupancyProvider.cs`](src/PMP.Modules.Resident/Abstractions/UnitOccupancyProvider.cs) | ✅ API integration (IMP-006) + 9 unit tests (IMP-040): auto-provisioning, assignment/transfer, move-out, deactivation, manager scoping, history retention |
 | FR-MNT-001..008 | 0009 | IMP-005, IMP-034 | [`MaintenanceController.cs`](src/PMP.Api/Controllers/MaintenanceController.cs:27) | [`MaintenanceService.cs`](src/PMP.Modules.Maintenance/Services/MaintenanceService.cs) | ✅ API integration (IMP-006) + 3 unit tests ([`MaintenanceServiceTests.cs`](tests/PMP.Tests/MaintenanceServiceTests.cs:15)); ⚠️ auto-close job untested |
@@ -333,7 +333,8 @@ Evidence:      src/PMP.Modules.Payment/Entities/PaymentInvoice.cs — receipt en
                Frontend: InvoicesPage (resident + financial views), client methods, /invoices route.
 Verification:  dotnet test PropertyManagement.sln → 116 passed / 0 failed. Frontend tsc -b && vite build green;
                oxlint 0 errors. Migration 20260914214226_AddPaymentInvoices applied by DbSeeder.
-Remaining:     PDF invoice export (GAP-025) and email invoice delivery are out of scope for this task.
+Remaining:     Email invoice delivery remains out of scope for this task. CSV invoice export was added under
+               GAP-025 (2026-09-15).
 ```
 
 ## 9. Next task selection policy
@@ -343,11 +344,10 @@ Order: (1) blocking/foundation, (2) required MVP, (3) high-priority functional r
 (8) technical debt, (9) post-MVP. Dependencies must be satisfied first.
 
 **Next recommended task: `IMP-041 — Frontend test infrastructure (Vitest/RTL) + core page/route tests`.**
-Rationale: IMP-040 closed the backend service-coverage gap — all nine modules have service-level tests and the
-suite is green — so the remaining *required testing* item is the frontend (login/route-guard plus one data
-page). IMP-042 (CI) depends on IMP-040 and can now consume the green suite. IMP-027 (mobile) is no longer
-blocked by IMP-040 but stays deferred as post-MVP. Per the selection order, testing precedes security/NFR
-(IMP-044) and DevOps (IMP-042/043).
+Rationale: with IMP-030 and IMP-031 closed, GAP-003 and GAP-004 are resolved and no P1 functional gaps remain.
+Per the selection order, the remaining *required testing* item — IMP-041, closing the frontend slice of GAP-001 —
+precedes security/NFR (IMP-044) and DevOps (IMP-042/043). IMP-033 (lease invariant) and the remaining post-MVP
+gaps follow.
 
 ## 10. Confluence live dashboard (do not duplicate)
 
@@ -389,4 +389,7 @@ artifact (timeline/budget/risk/backlog) and must not be overwritten by this dash
 | 2026-09-11 | **Documentation professionalization + repository hygiene (IMP-050, IMP-051, IMP-052 COMPLETE).** README rewritten as a system-analyst case study (overview, objectives, stakeholders, capabilities, analyst perspective, traceability, FR/NFR, architecture diagram, stack, structure, API, database, security, testing, ADRs, development approach, status, roadmap, run steps, documentation index, deliverables). Added [`docs/traceability.md`](docs/traceability.md) and [`docs/README.md`](docs/README.md); added [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`SECURITY.md`](SECURITY.md); replaced the frontend Vite-template README. Corrected `FR-COM-006` to PARTIAL (email record-only) in the compliance audit (roll-up 72→71 MET, 2→3 PARTIAL) and refreshed its date; marked ADR-0007 partially superseded by ADR-0012; fixed the glossary (`four`→nine module DbContexts) and the historical dev-plan drift (SPA path, schema wording) with a status banner. Removed `Class1.cs` ×5, `UnitTest1.cs`, `body.json` and the unused `LoggingNotificationService`; recorded `GAP-023` (repo-root-relative links inside `docs/` do not render on GitHub); extended `.gitignore` (test/coverage output, `.env.*`, `*.db-journal`, SPA cache) and stopped ignoring `docker-compose.yml` so deployment packaging (IMP-043) can be committed. Verified: `dotnet test PropertyManagement.sln` → **46 passed / 0 failed** (23 unit + 23 API integration), build 0 warnings / 0 errors. Dashboard: Completed 1→4, In Progress 13→12, Not Started 9→7; cross-cutting 12%→26%, **overall 63%→67%**, MVP 87% (unchanged). `GAP-010` RESOLVED. |
 | 2026-09-11 | **`IMP-040` COMPLETE - TDD discipline established.** Six module test files added (`AuthTokenServiceTests`, `ResidentServiceTests`, `LeaseServiceTests`, `CommunicationServiceTests`, `BookingServiceTests`, `SecurityServiceTests`) plus a shared `RecordingCommunicationService` double and Booking/Security project references. Tests were written at the ADR-0005 `Result` seam against existing behaviour (characterization/regression coverage) so the red -> green loop applies to *new* behaviour going forward; the workflow is documented in [`docs/TESTING.md`](docs/TESTING.md) and the `.roo/skills/tdd` skill. **No production code was changed.** Suite 46 -> **101 passed / 0 failed** (14 test files), build 0 warnings / 0 errors. `IMP-004` history-retention evidence gap closed (85 -> 95). GAP-001 narrowed (background-job/attachment paths and frontend tests remain). Dashboard: Completed 4 -> 5, In Progress 12 -> 11; cross-cutting 26% -> 50%, MVP 87% -> 89%, **overall 67% -> 73%**. Next task IMP-041. No CI created (IMP-042 / GAP-009). Added GAP-024. |
 | 2026-09-11 | **Confluence mirror synchronized - page v7.** The same page (`PMP Implementation Plan`, id `27262978`, space `PMP`) was updated to IMP-040 COMPLETE with the per-module service tests, the TDD strategy/workflow links, the refreshed dashboard (overall 73%, MVP 89%; Completed 5 / In Progress 11; gaps 24 incl. GAP-024), the GAP-001 narrowing, the module table (Resident 95%, Testing 70%, Lease/Communication/Booking/Security test blockers resolved), the next-task note (IMP-041) and a v7 change-log entry. No duplicate page was created. |
-| 2026-09-14 | **`IMP-053` COMPLETE — payment invoices (receipts).** A successful payment now creates exactly one `PaymentInvoice` (unique `PaymentTransactionId` FK) with a deterministic `INV-YYYY-NNNNNN` number from a per-year sequence table; failed/declined payments create none and a paid request cannot be paid again. Added `GET /api/invoices/my`, `GET /api/invoices` (Financial policy + filters), `GET /api/invoices/{id}` (ownership/scope enforced server-side). Added the resident + accountant/manager/admin `InvoicesPage` and `/invoices` route. Tests: 22 payment unit + 2 SQLite-constraint + 17 payment API integration (suite **116 passed / 0 failed**); frontend build + oxlint green. Added `GAP-025` (no invoice PDF export). Dashboard: Completed 5→6; post-MVP 72%→75%; overall 73%→74%, MVP 89% unchanged. Confluence mirror sync pending (no Atlassian tool session in this run). |
+| 2026-09-14 | **`IMP-053` COMPLETE — payment invoices (receipts).** A successful payment now creates exactly one `PaymentInvoice` (unique `PaymentTransactionId` FK) with a deterministic `INV-YYYY-NNNNNN` number from a per-year sequence table; failed/declined payments create none and a paid request cannot be paid again. Added `GET /api/invoices/my`, `GET /api/invoices` (Financial policy + filters), `GET /api/invoices/{id}` (ownership/scope enforced server-side). Added the resident + accountant/manager/admin `InvoicesPage` and `/invoices` route. Tests: 22 payment unit + 2 SQLite-constraint + 17 payment API integration (suite **116 passed / 0 failed**); frontend build + oxlint green. Added `GAP-025` (no invoice PDF export). Dashboard: Completed 5→6; post-MVP 72%→75%; overall 73%→74%, MVP 89% unchanged. Confluence mirror synchronized (page v8). |
+| 2026-09-15 | **`IMP-031` COMPLETE — immediate role revocation (GAP-003).** The JWT bearer handler now re-loads the caller's current roles (and active state) on every request and replaces stale role claims in the principal, so a removed/demoted role stops authorizing on the next request (≤1 request latency) and deactivated/deleted accounts are rejected immediately. Added [`RoleRevocationApiTests`](tests/PMP.Tests/Integration/RoleRevocationApiTests.cs:10) proving an issued technician token stops working after the Technician role is removed. Suite 116 → **117 passed / 0 failed**; build 0 warnings / 0 errors. Dashboard: Completed 6→7, Gaps 3→2; Auth 66%→78%, Security 0%→27%, Post-MVP 75%→80%, **overall 74%→76%**, MVP 89% unchanged. Next task IMP-030. Confluence mirror sync pending (page v9). |
+| 2026-09-15 | **`IMP-030` COMPLETE — owner self-service profile update (GAP-004).** Added `PUT /api/auth/me` so an authenticated user can edit their own Identity name fields (first/last name + phone); the change is audited (`ProfileUpdated`) and the resident profile is kept in sync via `IResidentService.UpdateMyProfileAsync` (no-op for staff). The endpoint is caller-scoped by construction (no user id parameter). Added [`ProfileUpdateApiTests`](tests/PMP.Tests/Integration/ProfileUpdateApiTests.cs:11) (2 integration tests: 401 unauthenticated; self-edit reflected in `/api/auth/me` and `/api/residents/me` while another user's identity is untouched). Suite 117 → **119 passed / 0 failed**; build 0 warnings / 0 errors. Dashboard: Completed 7→8, Gaps 2→1; Auth 78%→85%, Post-MVP 80%→82%, **overall 76%→77%**, MVP 89% unchanged. Next task IMP-041. Confluence mirror sync pending (page v9). |
+| 2026-09-15 | **`GAP-025` RESOLVED — invoice CSV export.** Added `GET /api/invoices/{id}/export` producing a portable CSV receipt (header + one row: number, payment date, resident, unit, property, purpose, amount, currency, method, status, transaction reference, confirmation number). Access reuses `GetPaymentInvoiceAsync`, so residents export only their own invoice and another resident receives 400. Format decision: CSV (no PDF-generation infrastructure in the project). Added 2 integration tests (own export succeeds; another resident is rejected). Suite 119 → **121 passed / 0 failed**; build 0 warnings / 0 errors. No task-weight change (IMP-053 already 100%). |

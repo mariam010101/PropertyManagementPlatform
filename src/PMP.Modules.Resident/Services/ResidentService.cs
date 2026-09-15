@@ -18,6 +18,9 @@ public interface IResidentService
 
     Task<Result<ResidentProfileDto>> GetMyProfileAsync(Guid userId);
 
+    /// <summary>Keeps the resident profile in sync with an identity-level self-edit (no-op for staff).</summary>
+    Task<Result> UpdateMyProfileAsync(Guid userId, string firstName, string lastName, string? phoneNumber);
+
     Task<Result<ResidentProfileDto>> UpdateResidentAsync(Guid actorId, IReadOnlyList<string> roles, Guid residentId, UpdateResidentProfileRequest request);
 
     Task<Result<ResidentProfileDto>> AssignUnitAsync(Guid actorId, IReadOnlyList<string> roles, Guid residentId, AssignUnitRequest request);
@@ -128,6 +131,25 @@ public class ResidentService : IResidentService
 
         var dtos = await ToDtosAsync([resident]);
         return Result.Ok(dtos[0]);
+    }
+
+    public async Task<Result> UpdateMyProfileAsync(Guid userId, string firstName, string lastName, string? phoneNumber)
+    {
+        var resident = await _db.ResidentProfiles
+            .SingleOrDefaultAsync(r => r.UserId == userId && !r.IsDeleted);
+
+        // Staff accounts have no resident profile; the identity update already succeeded.
+        if (resident is null)
+        {
+            return Result.Ok();
+        }
+
+        resident.FirstName = firstName;
+        resident.LastName = lastName;
+        resident.PhoneNumber = phoneNumber;
+        resident.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+        return Result.Ok();
     }
 
     public async Task<Result<ResidentProfileDto>> UpdateResidentAsync(Guid actorId, IReadOnlyList<string> roles, Guid residentId, UpdateResidentProfileRequest request)

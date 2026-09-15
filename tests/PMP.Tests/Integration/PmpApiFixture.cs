@@ -151,6 +151,19 @@ public sealed class PmpApiFixture : IAsyncLifetime
         return await SendAsync(request, accessToken);
     }
 
+    public async Task<ApiResult> PutAsync(string path, object? body = null, string? accessToken = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, path)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(body ?? new { }, Json),
+                Encoding.UTF8,
+                "application/json"),
+        };
+
+        return await SendAsync(request, accessToken);
+    }
+
     public T Deserialize<T>(string json)
         => JsonSerializer.Deserialize<T>(json, Json)
            ?? throw new InvalidOperationException($"Could not deserialize response payload: {json}");

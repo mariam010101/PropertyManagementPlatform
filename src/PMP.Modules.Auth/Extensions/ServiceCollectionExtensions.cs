@@ -69,6 +69,50 @@ public static class ServiceCollectionExtensions
                     NameClaimType = ClaimTypes.Name,
                     RoleClaimType = ClaimTypes.Role,
                 };
+
+                // IMP-031 / GAP-003: a revoked or demoted role must stop authorizing on the
+                // next request. Access tokens embed role claims at issue time and are otherwise
+                // valid for up to 15 minutes, so re-load the caller's current roles (and active
+                // state) from the identity store on every request and replace any stale claims.
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var userManager = context.HttpContext.RequestServices
+                            .GetRequiredService<UserManager<ApplicationUser>>();
+
+                        var userIdValue = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                        if (userIdValue is null || !Guid.TryParse(userIdValue, out var userId))
+                        {
+                            context.Fail("Invalid token subject.");
+                            return;
+                        }
+
+                        var user = await userManager.FindByIdAsync(userId.ToString());
+                        if (user is null || !user.IsActive)
+                        {
+                            context.Fail("The account is deactivated or no longer exists.");
+                            return;
+                        }
+
+                        if (context.Principal?.Identity is not ClaimsIdentity identity)
+                        {
+                            return;
+                        }
+
+                        var roleClaimType = identity.RoleClaimType;
+                        foreach (var stale in identity.Claims.Where(c => c.Type == roleClaimType).ToList())
+                        {
+                            identity.RemoveClaim(stale);
+                        }
+
+                        var currentRoles = await userManager.GetRolesAsync(user);
+                        foreach (var role in currentRoles)
+                        {
+                            identity.AddClaim(new Claim(roleClaimType, role));
+                        }
+                    },
+                };
             });
 
         services.AddAuthorization(options =>

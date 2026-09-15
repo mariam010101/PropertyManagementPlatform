@@ -43,6 +43,9 @@ public interface IAuthService
 
     /// <summary>Identity of the authenticated caller (name/email/roles) for the client shell.</summary>
     Task<Result<MeResponse>> GetCurrentUserAsync(Guid userId);
+
+    /// <summary>Updates the caller's own Identity name fields (and phone). No role or email changes.</summary>
+    Task<Result<MeResponse>> UpdateMyProfileAsync(Guid userId, UpdateMyProfileRequest request);
 }
 
 public class AuthService : IAuthService
@@ -80,6 +83,33 @@ public class AuthService : IAuthService
 
         var roles = await _userManager.GetRolesAsync(user);
 
+        return Result.Ok(new MeResponse
+        {
+            UserId = user.Id,
+            Email = user.Email ?? string.Empty,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Roles = roles.ToList(),
+        });
+    }
+
+    public async Task<Result<MeResponse>> UpdateMyProfileAsync(Guid userId, UpdateMyProfileRequest request)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            return Result.Fail<MeResponse>("User not found.");
+        }
+
+        user.FirstName = request.FirstName;
+        user.LastName = request.LastName;
+        user.PhoneNumber = request.PhoneNumber;
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        await RecordEventAsync(user.Id, user.Email, "ProfileUpdated", null);
+
+        var roles = await _userManager.GetRolesAsync(user);
         return Result.Ok(new MeResponse
         {
             UserId = user.Id,

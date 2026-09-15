@@ -158,3 +158,19 @@ public record SetUserRolesRequest
 {
     public IReadOnlyList<string> Roles { get; init; } = Array.Empty<string>();
 }
+
+/// <summary>
+/// The authenticated caller's own profile edit (FR-AUTH-005, BRULE-AUTH-006).
+/// Mutates the Identity name fields (and phone) only; no role or email changes.
+/// </summary>
+public record UpdateMyProfileRequest
+{
+    [Required, MaxLength(100)]
+    public string FirstName { get; init; } = string.Empty;
+
+    [Required, MaxLength(100)]
+    public string LastName { get; init; } = string.Empty;
+
+    [Phone, MaxLength(32)]
+    public string? PhoneNumber { get; init; }
+}

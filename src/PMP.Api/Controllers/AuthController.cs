@@ -161,7 +161,7 @@ public class AuthController : ControllerBase
 
     /// <summary>
     /// The caller's own identity (id, email, name, roles) so the client can render the
-    /// signed-in user after a reload. Read-only; profile editing stays separate (IMP-030).
+    /// signed-in user after a reload. Read-only; profile editing is the PUT below (IMP-030).
     /// </summary>
     [HttpGet("me")]
     [Authorize]
@@ -172,5 +172,22 @@ public class AuthController : ControllerBase
         return result.Succeeded
             ? Ok(result.Data)
             : Unauthorized(new { error = result.Error });
+    }
+
+    /// <summary>Edit the caller's own identity name fields (FR-AUTH-005, BRULE-AUTH-006).</summary>
+    [HttpPut("me")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateMyProfileRequest request)
+    {
+        var result = await _auth.UpdateMyProfileAsync(_currentUser.Id, request);
+        if (!result.Succeeded)
+        {
+            return result.ToActionResult();
+        }
+
+        // Keep the resident profile (if any) in sync so GET /api/residents/me reflects the change.
+        await _residents.UpdateMyProfileAsync(_currentUser.Id, request.FirstName, request.LastName, request.PhoneNumber);
+
+        return Ok(result.Data);
     }
 }

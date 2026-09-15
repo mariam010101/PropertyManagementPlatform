@@ -1,6 +1,6 @@
 # PMP Implementation Gap Analysis
 
-**Last Updated:** 2026-09-14 21:56 UTC (2026-09-15 01:56 Asia/Yerevan)
+**Last Updated:** 2026-09-15 22:09 UTC (2026-09-16 02:09 Asia/Yerevan)
 **Companion document:** [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
 **Method:** every item below was identified by comparing approved requirements/ADRs
 ([`docs/adr/`](docs/adr/), [`docs/requirements-compliance.md`](docs/requirements-compliance.md),
@@ -14,8 +14,8 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 | --- | --- | --- | --- | --- | --- | --- |
 | GAP-001 | Automated test coverage improved but still incomplete: 101 tests after IMP-040 and every module now has service-level tests; no background-job/attachment tests, no frontend tests | Cross-module | all FR sets; ADR-0005 | P1 | IMP-040 (done), IMP-041 | IN_PROGRESS |
 | GAP-002 | Mobile platform access not implemented (no native app or PWA; responsive web only) | Mobile | FR-MOBILE-001..005; ADR-0007, ADR-0012 | P2 | IMP-027 | NOT_STARTED (deferred) |
-| GAP-003 | Role revocation does not apply to already-issued 15-minute JWTs | Auth | FR-RBAC-006, BRULE-RBAC-006; ADR-0003/0004 | P1 | IMP-031 | GAP |
-| GAP-004 | No dedicated owner "edit my profile" endpoint that mutates Identity name fields | Auth | FR-AUTH-005, BRULE-AUTH-006 | P1 | IMP-030 | GAP |
+| GAP-003 | Role revocation does not apply to already-issued 15-minute JWTs | Auth | FR-RBAC-006, BRULE-RBAC-006; ADR-0003/0004 | P1 | IMP-031 | RESOLVED |
+| GAP-004 | No dedicated owner "edit my profile" endpoint that mutates Identity name fields | Auth | FR-AUTH-005, BRULE-AUTH-006 | P1 | IMP-030 | RESOLVED |
 | GAP-005 | Email channel is record-only: notifications store channel/delivery status but no transport exists (no SMTP/MailKit/SendGrid/DependencyInjection of `IEmailSender`) | Communication | FR-COM-001, FR-COM-006 | P2 | IMP-023 | GAP |
 | GAP-006 | "Active resident must have a lease" is a process convention, not an enforced invariant | Lease / Resident | BRULE-LEASE-001 | P2 | IMP-033 | GAP |
 | GAP-007 | Role validation missing on two write paths: maintenance assignment does not verify the assignee is a Technician; property create does not verify the manager is a Property Manager | Maintenance / Property | BRULE-MNT-003, BRULE-PROP-003; ADR-0006 | P3 | IMP-034 | GAP |
@@ -36,7 +36,7 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 | GAP-014 | Maintenance notifications carry no request context (the request title is absent from the persisted payload), so a resident cannot identify which request a notification refers to | Maintenance / Communication | FR-MNT-005, FR-COM-001 | P3 | IMP-040 | GAP |
 | GAP-023 | Internal `docs/` links are written repo-root-relative and with `:line` suffixes, so they do not resolve when rendered on GitHub (which resolves relative to the containing file and uses `#Lnnn`) | Docs | — | P3 | IMP-051, IMP-052 | GAP |
 | GAP-024 | Resident first-unit assignment is Administrator-only: manager scoping grants access only to residents already occupying one of the manager's units, so a newly registered resident cannot be seen or assigned by a Property Manager | Resident | FR-RES-003, BRULE-RES-002; ADR-0008 | P2 | IMP-004 | GAP (decision-required) |
-| GAP-025 | No invoice PDF/document export: payment invoices render as an on-screen details view only; no PDF/CSV invoice export format is defined or produced | Payment | FR-PAY-003; ADR-0012 | P3 | IMP-053 | GAP |
+| GAP-025 | No invoice PDF/document export: payment invoices render as an on-screen details view only; no PDF/CSV invoice export format is defined or produced | Payment | FR-PAY-003; ADR-0012 | P3 | IMP-053 | RESOLVED |
 
 ---
 
@@ -68,26 +68,42 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 - **Priority:** P2 (must not start before IMP-006/IMP-040 are green).
 - **Related task:** `IMP-027`.
 
-### GAP-003 — Role-revocation latency
+### GAP-003 — Role-revocation latency (RESOLVED)
 - **Affected module:** Auth (RBAC).
 - **Related requirement/ADR:** FR-RBAC-006, BRULE-RBAC-006; ADR-0003, ADR-0004.
-- **Current state:** role changes are written immediately and audited, but an already-issued access token keeps
-  the old role claims until it expires (15-minute TTL per [`JwtOptions.cs`](src/PMP.Modules.Auth/Options/JwtOptions.cs));
-  deactivation additionally revokes refresh tokens.
-- **What remains:** choose one mechanism (shortened access-token TTL + refresh, per-request active-role recheck,
-  or Identity security-stamp validation) and add a test proving a removed role is unusable on the next request.
-- **Priority:** P1.
+- **Current state (before):** role changes were written immediately and audited, but an already-issued access token
+  kept the old role claims until it expired (15-minute TTL per [`JwtOptions.cs`](src/PMP.Modules.Auth/Options/JwtOptions.cs));
+  deactivation additionally revoked refresh tokens.
+- **Resolution (2026-09-15, `IMP-031`):** the JWT bearer handler now re-loads the caller's current roles (and active
+  state) from the identity store on every request and replaces any stale role claims in the principal
+  (`OnTokenValidated` in [`ServiceCollectionExtensions.cs`](src/PMP.Modules.Auth/Extensions/ServiceCollectionExtensions.cs:56)).
+  A revoked or demoted role therefore takes effect on the next request (≤1 request latency); deactivated or deleted
+  accounts are rejected immediately as well.
+- **Verification:** new integration test
+  [`RoleRevocationApiTests.RemovedRole_StopsAuthorizing_OnTheNextRequest`](tests/PMP.Tests/Integration/RoleRevocationApiTests.cs:17)
+  provisions an isolated technician, proves the issued token authorizes `GET /api/maintenance`, removes the
+  Technician role via `PUT /api/auth/users/{id}/roles`, then asserts the old token is rejected with 403.
+  Full suite **117 passed / 0 failed**; build 0 warnings / 0 errors.
+- **Priority:** P1 — resolved.
 - **Related task:** `IMP-031`.
 
-### GAP-004 — No owner self-service profile update
+### GAP-004 — No owner self-service profile update (RESOLVED)
 - **Affected module:** Auth (+ Resident for the profile data).
 - **Related requirement/ADR:** FR-AUTH-005, BRULE-AUTH-006.
-- **Current state:** residents read their own profile via `GET /api/residents/me`; edits happen through the
-  manager/admin path `PUT /api/residents/{residentId}`. No endpoint lets a user update their own Identity
-  name fields.
-- **What remains:** add an authenticated self-update endpoint (identity + resident fields), audit the change,
-  and test that a user cannot update another user's data.
-- **Priority:** P1.
+- **Current state (before):** residents read their own profile via `GET /api/residents/me`; edits happened through
+  the manager/admin path `PUT /api/residents/{residentId}`. No endpoint let a user update their own Identity name
+  fields.
+- **Resolution (2026-09-15, `IMP-030`):** added `PUT /api/auth/me` (authenticated) which updates the caller's
+  Identity `FirstName`/`LastName`/`PhoneNumber`, records a `ProfileUpdated` auth event, and keeps the resident
+  profile in sync via `IResidentService.UpdateMyProfileAsync` (no-op for staff accounts). The endpoint is scoped
+  to the caller by construction — it takes no user id parameter, so another user's data cannot be addressed.
+  See [`AuthController.UpdateMyProfile`](src/PMP.Api/Controllers/AuthController.cs:179) and
+  [`AuthService.UpdateMyProfileAsync`](src/PMP.Modules.Auth/Services/AuthService.cs:93).
+- **Verification:** [`ProfileUpdateApiTests`](tests/PMP.Tests/Integration/ProfileUpdateApiTests.cs:11) asserts an
+  unauthenticated request is rejected (401), a self-edit is reflected in both `/api/auth/me` and
+  `/api/residents/me`, and a different user's identity is untouched. Full suite **119 passed / 0 failed**;
+  build 0 warnings / 0 errors.
+- **Priority:** P1 — resolved.
 - **Related task:** `IMP-030`.
 
 ### GAP-005 — Email channel is record-only
@@ -390,16 +406,22 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 - **Priority:** P2 — affects the FR-RES-003 assignment workflow.
 - **Related task:** `IMP-004`.
 
-### GAP-025 — No invoice PDF/document export
+### GAP-025 — No invoice PDF/document export (RESOLVED)
 - **Affected module:** Payment (BR-005 — payment invoices/receipts).
 - **Related requirement/ADR:** FR-PAY-003 (generate payment confirmations); ADR-0012.
-- **Current state:** a successful payment generates a `PaymentInvoice` with a stable `INV-YYYY-NNNNNN` number, and
-  residents/accountants view it through the on-screen details view ([`InvoicesPage`](frontend/src/pages/InvoicesPage.tsx:1))
-  backed by [`InvoicesController`](src/PMP.Api/Controllers/InvoicesController.cs:23). No PDF (or other portable
-  document) export exists, and the project has no PDF-generation infrastructure to reuse.
-- **What remains:** define an export format and add document generation when required; a well-designed on-screen
-  invoice details view satisfies the current MVP.
-- **Priority:** P3 — future enhancement.
+- **Current state (before):** a successful payment generated a `PaymentInvoice` with a stable `INV-YYYY-NNNNNN`
+  number, viewable only through the on-screen details view; no portable export existed and the project had no
+  PDF-generation infrastructure to reuse.
+- **Resolution (2026-09-15):** added `GET /api/invoices/{id}/export` which returns a portable **CSV** receipt
+  (header + one data row: number, payment date, resident, unit, property, purpose, amount, currency, method,
+  status, transaction reference, confirmation number). Format decision: CSV — no PDF library is present and CSV
+  is sufficient for a portable payment confirmation. Access reuses `GetPaymentInvoiceAsync`, so residents export
+  only their own invoice (another resident receives 400).
+  See [`InvoicesController.ExportInvoice`](src/PMP.Api/Controllers/InvoicesController.cs:78).
+- **Verification:** [`PaymentApiTests`](tests/PMP.Tests/Integration/PaymentApiTests.cs:274) asserts the CSV body
+  carries the invoice number, transaction reference and the amount (invariant culture), and that another resident
+  cannot export the invoice. Full suite **121 passed / 0 failed**; build 0 warnings / 0 errors.
+- **Priority:** P3 — resolved (CSV export; PDF remains a possible future format).
 - **Related task:** `IMP-053`.
 
 ---

@@ -1,3 +1,4 @@
+using System.Globalization;
 using PMP.Modules.Auth.Contracts;
 using PMP.Modules.Lease.Contracts;
 using PMP.Modules.Lease.Enums;
@@ -269,6 +270,56 @@ public class PaymentApiTests
         Assert.True(single.Code == 200, $"GET /api/invoices/{{id}} failed: {single}");
         var detail = _api.Deserialize<PaymentInvoiceDto>(single.Body);
         Assert.Equal(invoice.InvoiceNumber, detail.InvoiceNumber);
+    }
+
+    [Fact]
+    public async Task Resident_CanExportOwnInvoice_AsCsv()
+    {
+        var manager = await _api.LoginAsync(ManagerEmail, ManagerPassword);
+        var resident = await _api.LoginAsync(ResidentEmail, ResidentPassword);
+        var lease = await GetSeededLeaseAsync(manager.AccessToken, resident.UserId);
+        var request = await CreateRentRequestAsync(manager.AccessToken, lease.Id);
+
+        var pay = await _api.PostAsync(
+            $"/api/payments/invoices/{request.Id}/pay",
+            new PayInvoiceRequest { Amount = lease.MonthlyRent },
+            resident.AccessToken);
+        Assert.True(pay.Code == 200, $"Payment failed: {pay}");
+
+        var my = await _api.GetAsync("/api/invoices/my", resident.AccessToken);
+        var invoice = _api.Deserialize<List<PaymentInvoiceDto>>(my.Body).First(i => i.InvoiceId == request.Id);
+
+        var export = await _api.GetAsync($"/api/invoices/{invoice.Id}/export", resident.AccessToken);
+        Assert.True(export.Code == 200, $"CSV export failed: {export}");
+
+        // A self-contained receipt: header row plus the invoice's own values.
+        Assert.Contains("InvoiceNumber", export.Body);
+        Assert.Contains("PaymentDate", export.Body);
+        Assert.Contains(invoice.InvoiceNumber, export.Body);
+        Assert.Contains(invoice.TransactionReference, export.Body);
+        Assert.Contains(lease.MonthlyRent.ToString("0.00", CultureInfo.InvariantCulture), export.Body);
+    }
+
+    [Fact]
+    public async Task Resident_CannotExportAnotherResidentsInvoice()
+    {
+        var manager = await _api.LoginAsync(ManagerEmail, ManagerPassword);
+        var resident = await _api.LoginAsync(ResidentEmail, ResidentPassword);
+        var lease = await GetSeededLeaseAsync(manager.AccessToken, resident.UserId);
+        var request = await CreateRentRequestAsync(manager.AccessToken, lease.Id);
+
+        var pay = await _api.PostAsync(
+            $"/api/payments/invoices/{request.Id}/pay",
+            new PayInvoiceRequest { Amount = lease.MonthlyRent },
+            resident.AccessToken);
+        Assert.True(pay.Code == 200, $"Payment failed: {pay}");
+
+        var my = await _api.GetAsync("/api/invoices/my", resident.AccessToken);
+        var invoice = _api.Deserialize<List<PaymentInvoiceDto>>(my.Body).First(i => i.InvoiceId == request.Id);
+
+        var other = await RegisterAndLoginResidentAsync();
+        var export = await _api.GetAsync($"/api/invoices/{invoice.Id}/export", other);
+        Assert.True(export.Code == 400, $"A resident must not export another resident's invoice but got {export}");
     }
 
     [Fact]

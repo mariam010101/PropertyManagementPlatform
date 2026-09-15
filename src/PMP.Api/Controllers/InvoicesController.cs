@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PMP.Api.Infrastructure;
@@ -70,5 +72,63 @@ public class InvoicesController : ControllerBase
     {
         var result = await _payments.GetPaymentInvoiceAsync(_currentUser.Id, _currentUser.Roles, id);
         return result.ToActionResult();
+    }
+
+    /// <summary>
+    /// Exports a single invoice as CSV (a portable payment confirmation, FR-PAY-003 / GAP-025).
+    /// Access mirrors the detail endpoint — residents export only their own invoice;
+    /// accountants/managers/administrators export within their financial scope.
+    /// </summary>
+    [HttpGet("{id:guid}/export")]
+    public async Task<IActionResult> ExportInvoice(Guid id)
+    {
+        var result = await _payments.GetPaymentInvoiceAsync(_currentUser.Id, _currentUser.Roles, id);
+        if (!result.Succeeded)
+        {
+            return result.ToActionResult();
+        }
+
+        var invoice = result.Data!;
+        var csv = BuildInvoiceCsv(invoice);
+        return File(Encoding.UTF8.GetBytes(csv), "text/csv", $"{invoice.InvoiceNumber}.csv");
+    }
+
+    private static string BuildInvoiceCsv(PaymentInvoiceDto invoice)
+    {
+        string[] header =
+        [
+            "InvoiceNumber", "PaymentDate", "ResidentName", "UnitNumber", "PropertyName",
+            "Purpose", "Amount", "Currency", "Method", "Status", "TransactionReference", "ConfirmationNumber",
+        ];
+
+        string[] fields =
+        [
+            invoice.InvoiceNumber,
+            invoice.PaymentDate.ToString("O", CultureInfo.InvariantCulture),
+            invoice.ResidentName,
+            invoice.UnitNumber,
+            invoice.PropertyName,
+            invoice.Purpose,
+            invoice.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+            invoice.Currency,
+            invoice.Method.ToString(),
+            invoice.Status.ToString(),
+            invoice.TransactionReference,
+            invoice.ConfirmationNumber ?? string.Empty,
+        ];
+
+        return string.Join(Environment.NewLine,
+            string.Join(",", header),
+            string.Join(",", fields.Select(Escape)));
+    }
+
+    private static string Escape(string field)
+    {
+        if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
+        {
+            return $"\"{field.Replace("\"", "\"\"")}\"";
+        }
+
+        return field;
     }
 }
