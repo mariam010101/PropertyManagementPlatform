@@ -1,6 +1,6 @@
 # PMP Implementation Gap Analysis
 
-**Last Updated:** 2026-09-15 22:09 UTC (2026-09-16 02:09 Asia/Yerevan)
+**Last Updated:** 2026-09-15 22:51 UTC (2026-09-16 02:51 Asia/Yerevan)
 **Companion document:** [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
 **Method:** every item below was identified by comparing approved requirements/ADRs
 ([`docs/adr/`](docs/adr/), [`docs/requirements-compliance.md`](docs/requirements-compliance.md),
@@ -37,6 +37,7 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 | GAP-023 | Internal `docs/` links are written repo-root-relative and with `:line` suffixes, so they do not resolve when rendered on GitHub (which resolves relative to the containing file and uses `#Lnnn`) | Docs | — | P3 | IMP-051, IMP-052 | GAP |
 | GAP-024 | Resident first-unit assignment is Administrator-only: manager scoping grants access only to residents already occupying one of the manager's units, so a newly registered resident cannot be seen or assigned by a Property Manager | Resident | FR-RES-003, BRULE-RES-002; ADR-0008 | P2 | IMP-004 | GAP (decision-required) |
 | GAP-025 | No invoice PDF/document export: payment invoices render as an on-screen details view only; no PDF/CSV invoice export format is defined or produced | Payment | FR-PAY-003; ADR-0012 | P3 | IMP-053 | RESOLVED |
+| GAP-026 | Lease creation failed with HTTP 500: the one-active-lease overlap check compared the string-persisted `LeaseStatus` and `DateTimeOffset` dates in SQL, which EF Core 9 cannot translate on SQLite | Lease | BRULE-LEASE-002; ADR-0011 | P1 | — (resolved) | RESOLVED |
 
 ---
 
@@ -423,6 +424,30 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
   cannot export the invoice. Full suite **121 passed / 0 failed**; build 0 warnings / 0 errors.
 - **Priority:** P3 — resolved (CSV export; PDF remains a possible future format).
 - **Related task:** `IMP-053`.
+
+### GAP-026 — Lease creation 500 on SQLite (RESOLVED)
+- **Affected module:** Lease (`POST /api/leases`, manager/admin).
+- **Related requirement/ADR:** BRULE-LEASE-002 (one active lease per unit); ADR-0011 (single-file SQLite).
+- **Current state (before):** [`LeaseService.CreateLeaseAsync`](src/PMP.Modules.Lease/Services/LeaseService.cs:61) ran the
+  overlap check as a single `AnyAsync` with `l.Status == LeaseStatus.Active &&
+  l.StartDate < request.EndDate && l.EndDate > request.StartDate`. `LeaseStatus` is persisted as its string name
+  (`HasConversion<string>()`) and the dates as TEXT, but EF Core 9 cannot translate the enum comparison (rewritten to
+  `(int)l.Status == 0`) or the `DateTimeOffset` `<`/`>` predicates on SQLite, so creating a lease threw
+  `InvalidOperationException` and the API returned HTTP 500.
+- **Resolution (2026-09-15):** the overlap check now narrows to the unit in SQL
+  (`Where(l => l.UnitId == request.UnitId)`) and evaluates the active-status + date-overlap predicates in memory;
+  [`GetLeasesAsync`](src/PMP.Modules.Lease/Services/LeaseService.cs:138) applies its optional status filter in memory
+  after materialization, and [`RunExpiryLifecycleAsync`](src/PMP.Modules.Lease/Services/LeaseService.cs:318) filters
+  active leases in memory — mirroring the existing materialize-then-filter pattern used for SQLite `DateTimeOffset`
+  ordering in [`GetDocumentsAsync`](src/PMP.Modules.Lease/Services/LeaseService.cs:281).
+- **Verification:** new SQLite-backed tests in
+  [`LeaseServiceSqliteTests.cs`](tests/PMP.Tests/LeaseServiceSqliteTests.cs:1) drive `CreateLeaseAsync` (success +
+  overlap rejection), the status filter and the expiry sweep against a real SQLite engine — the in-memory provider
+  does not enforce SQL translation, which is why the defect passed the original unit tests. Full suite
+  **124 passed / 0 failed**; build 0 warnings / 0 errors; live smoke test `POST /api/leases` as a manager returned the
+  created lease (`status=Active`) and an overlapping unit correctly returned 400 (not 500).
+- **Priority:** P1 — resolved.
+- **Related task:** — (bug fix, no IMP task).
 
 ---
 

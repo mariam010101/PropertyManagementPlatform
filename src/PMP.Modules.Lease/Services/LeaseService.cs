@@ -98,11 +98,15 @@ public class LeaseService : ILeaseService
         }
 
         // One active lease per unit at a time (BRULE-LEASE-002).
-        var overlapping = await _db.LeaseAgreements.AnyAsync(l =>
-            l.UnitId == request.UnitId &&
-            l.Status == LeaseStatus.Active &&
-            l.StartDate < request.EndDate &&
-            l.EndDate > request.StartDate);
+        // SQLite stores Status as its string name and StartDate/EndDate as TEXT, so
+        // narrow to the unit in SQL and evaluate status + date overlap in memory
+        // (same pattern used for SQLite DateTimeOffset ordering in GetDocumentsAsync).
+        var overlapping = (await _db.LeaseAgreements.AsNoTracking()
+            .Where(l => l.UnitId == request.UnitId)
+            .ToListAsync())
+            .Any(l => l.Status == LeaseStatus.Active &&
+                      l.StartDate < request.EndDate &&
+                      l.EndDate > request.StartDate);
         if (overlapping)
         {
             return Result.Fail<LeaseDetailDto>("The unit already has an active lease for this period.");
@@ -140,12 +144,13 @@ public class LeaseService : ILeaseService
         var query = _db.LeaseAgreements.AsNoTracking()
             .Where(l => leaseIds.Contains(l.Id));
 
+        var rows = await query.ToListAsync();
+
         if (status.HasValue)
         {
-            query = query.Where(l => l.Status == status.Value);
+            rows = rows.Where(l => l.Status == status.Value).ToList();
         }
 
-        var rows = await query.ToListAsync();
         return await ToDtosAsync(rows);
     }
 
@@ -317,9 +322,9 @@ public class LeaseService : ILeaseService
         var now = DateTimeOffset.UtcNow;
         var horizon = now.AddDays(ExpiryNoticeDays);
 
-        var actives = await _db.LeaseAgreements
+        var actives = (await _db.LeaseAgreements.ToListAsync())
             .Where(l => l.Status == LeaseStatus.Active)
-            .ToListAsync();
+            .ToList();
 
         var changed = new List<LeaseAgreement>();
         foreach (var lease in actives)
