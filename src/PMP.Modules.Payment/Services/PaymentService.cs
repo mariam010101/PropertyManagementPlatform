@@ -45,6 +45,28 @@ public interface IPaymentService
 
     Task<IReadOnlyList<PaymentTransactionDto>> GetPaymentHistoryAsync(Guid actorId, IReadOnlyList<string> roles);
 
+    /// <summary>
+    /// Accountant/manager/admin: invoices generated for successful payments, scoped to the
+    /// caller's authority (accountant/admin see all; manager sees their properties).
+    /// </summary>
+    Task<IReadOnlyList<PaymentInvoiceDto>> GetPaymentInvoicesAsync(
+        Guid actorId,
+        IReadOnlyList<string> roles,
+        Guid? residentUserId,
+        Guid? propertyId,
+        PaymentInvoiceStatus? status,
+        DateTimeOffset? from,
+        DateTimeOffset? to);
+
+    /// <summary>Resident: the caller's own payment invoices (never another resident's).</summary>
+    Task<IReadOnlyList<PaymentInvoiceDto>> GetMyPaymentInvoicesAsync(Guid actorId);
+
+    /// <summary>
+    /// Single invoice with ownership/scope enforcement. The caller can only read an
+    /// invoice that belongs to them or that falls within their financial scope.
+    /// </summary>
+    Task<Result<PaymentInvoiceDto>> GetPaymentInvoiceAsync(Guid actorId, IReadOnlyList<string> roles, Guid invoiceId);
+
     Task<Result<PaymentTransactionDto>> PayInvoiceAsync(Guid actorId, IReadOnlyList<string> roles, Guid invoiceId, PayInvoiceRequest request);
 
     /// <summary>Manager/admin cancels an unsettled payment request; the record is retained.</summary>
@@ -393,6 +415,114 @@ public class PaymentService : IPaymentService
         return MapTransactions(rows);
     }
 
+    // ---------------------------------------------------------------- payment invoices
+
+    public async Task<IReadOnlyList<PaymentInvoiceDto>> GetPaymentInvoicesAsync(
+        Guid actorId,
+        IReadOnlyList<string> roles,
+        Guid? residentUserId,
+        Guid? propertyId,
+        PaymentInvoiceStatus? status,
+        DateTimeOffset? from,
+        DateTimeOffset? to)
+    {
+        if (!IsFinancialRole(roles))
+        {
+            return Array.Empty<PaymentInvoiceDto>();
+        }
+
+        var query = _db.PaymentInvoices.AsNoTracking();
+
+        // Scope: accountant/admin read everything; a manager only reads their properties.
+        if (!roles.Contains(AppRoles.Administrator) && !roles.Contains(AppRoles.Accountant))
+        {
+            var managedIds = await ManagedPropertyIdsAsync(actorId);
+            query = query.Where(pi => managedIds.Contains(pi.PropertyId));
+        }
+
+        if (residentUserId is not null)
+        {
+            query = query.Where(pi => pi.ResidentUserId == residentUserId);
+        }
+
+        if (propertyId is not null)
+        {
+            query = query.Where(pi => pi.PropertyId == propertyId);
+        }
+
+        if (status is not null)
+        {
+            query = query.Where(pi => pi.Status == status);
+        }
+
+        // SQLite cannot translate DateTimeOffset range comparisons: narrow in SQL by the
+        // enum where possible, then apply the date window in memory (ADR-0012).
+        var rows = await query.ToListAsync();
+
+        IEnumerable<PaymentInvoice> filtered = rows;
+        if (from is not null)
+        {
+            filtered = filtered.Where(pi => pi.PaymentDate >= from);
+        }
+
+        if (to is not null)
+        {
+            filtered = filtered.Where(pi => pi.PaymentDate <= to);
+        }
+
+        return await ToPaymentInvoiceDtosAsync(filtered.OrderByDescending(pi => pi.PaymentDate).ToList());
+    }
+
+    public async Task<IReadOnlyList<PaymentInvoiceDto>> GetMyPaymentInvoicesAsync(Guid actorId)
+    {
+        // SQLite cannot translate DateTimeOffset in ORDER BY: load, then order in memory.
+        var rows = await _db.PaymentInvoices.AsNoTracking()
+            .Where(pi => pi.ResidentUserId == actorId)
+            .ToListAsync();
+
+        return await ToPaymentInvoiceDtosAsync(rows.OrderByDescending(pi => pi.PaymentDate).ToList());
+    }
+
+    public async Task<Result<PaymentInvoiceDto>> GetPaymentInvoiceAsync(Guid actorId, IReadOnlyList<string> roles, Guid invoiceId)
+    {
+        var invoice = await _db.PaymentInvoices.AsNoTracking()
+            .SingleOrDefaultAsync(pi => pi.Id == invoiceId);
+
+        if (invoice is null)
+        {
+            return Result.Fail<PaymentInvoiceDto>("Invoice not found.");
+        }
+
+        if (roles.Contains(AppRoles.Administrator) || roles.Contains(AppRoles.Accountant))
+        {
+            return Result.Ok(await ToPaymentInvoiceDtoAsync(invoice));
+        }
+
+        if (roles.Contains(AppRoles.Resident))
+        {
+            if (invoice.ResidentUserId != actorId)
+            {
+                // Hide existence to prevent IDOR enumeration (FR-AUTH-007).
+                return Result.Fail<PaymentInvoiceDto>("Invoice not found.");
+            }
+
+            return Result.Ok(await ToPaymentInvoiceDtoAsync(invoice));
+        }
+
+        if (roles.Contains(AppRoles.PropertyManager))
+        {
+            var managedIds = await ManagedPropertyIdsAsync(actorId);
+            if (!managedIds.Contains(invoice.PropertyId))
+            {
+                return Result.Fail<PaymentInvoiceDto>("Invoice not found.");
+            }
+
+            return Result.Ok(await ToPaymentInvoiceDtoAsync(invoice));
+        }
+
+        return Result.Fail<PaymentInvoiceDto>("Invoice not found.");
+    }
+
     // ---------------------------------------------------------------- writes
 
     public async Task<Result<PaymentTransactionDto>> PayInvoiceAsync(Guid actorId, IReadOnlyList<string> roles, Guid invoiceId, PayInvoiceRequest request)
@@ -461,6 +591,27 @@ public class PaymentService : IPaymentService
         };
 
         _db.PaymentTransactions.Add(transaction);
+
+        // The successful payment produces its invoice receipt (Payment 1 → Invoice 1).
+        // Idempotency is enforced by the unique index on PaymentTransactionId.
+        var paymentInvoice = new PaymentInvoice
+        {
+            InvoiceNumber = await NextInvoiceNumberAsync(),
+            PaymentTransactionId = transaction.Id,
+            TransactionReference = transaction.TransactionReference,
+            InvoiceId = invoice.Id,
+            ResidentUserId = invoice.ResidentUserId,
+            UnitId = invoice.UnitId,
+            PropertyId = invoice.PropertyId,
+            Amount = transaction.Amount,
+            Currency = invoice.Currency,
+            Purpose = invoice.Purpose,
+            Method = transaction.Method,
+            Status = PaymentInvoiceStatus.Issued,
+            PaymentDate = now,
+            ConfirmationNumber = transaction.ConfirmationNumber,
+        };
+        _db.PaymentInvoices.Add(paymentInvoice);
 
         // Update request totals (BRULE-PAY-004: status reflects state).
         invoice.PaidAmount += transaction.Amount;
@@ -812,6 +963,85 @@ public class PaymentService : IPaymentService
                 PaidAt = invoice.PaidAt,
                 CreatedAt = invoice.CreatedAt,
                 CancelledAt = invoice.CancelledAt,
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Issues the next deterministic invoice number for the current year from the per-year
+    /// sequence table (<c>INV-{year}-{n:000000}</c>). This is a dedicated counter — not
+    /// <c>COUNT(invoices)+1</c> — and the unique index on
+    /// <see cref="PaymentInvoice.InvoiceNumber"/> is the hard backstop that no two invoices
+    /// can share a number even under concurrent writes.
+    /// </summary>
+    private async Task<string> NextInvoiceNumberAsync()
+    {
+        var year = DateTimeOffset.UtcNow.Year;
+
+        var sequence = await _db.InvoiceNumberSequences.SingleOrDefaultAsync(s => s.Year == year);
+        if (sequence is null)
+        {
+            sequence = new InvoiceNumberSequence { Year = year, LastNumber = 0 };
+            _db.InvoiceNumberSequences.Add(sequence);
+        }
+
+        sequence.LastNumber += 1;
+        return $"INV-{year}-{sequence.LastNumber:D6}";
+    }
+
+    private async Task<PaymentInvoiceDto> ToPaymentInvoiceDtoAsync(PaymentInvoice invoice)
+    {
+        var dtos = await ToPaymentInvoiceDtosAsync([invoice]);
+        return dtos[0];
+    }
+
+    private async Task<IReadOnlyList<PaymentInvoiceDto>> ToPaymentInvoiceDtosAsync(IReadOnlyList<PaymentInvoice> invoices)
+    {
+        if (invoices.Count == 0)
+        {
+            return Array.Empty<PaymentInvoiceDto>();
+        }
+
+        var unitIds = invoices.Select(i => i.UnitId).Distinct().ToList();
+        var units = await _propertyDb.ResidentialUnits.AsNoTracking()
+            .Where(u => unitIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.UnitNumber, PropertyName = u.Building!.Property!.Name })
+            .ToListAsync();
+        var unitLookup = units.ToDictionary(u => u.Id);
+
+        var residentIds = invoices.Select(i => i.ResidentUserId).Distinct().ToList();
+        var profiles = await _residentDb.ResidentProfiles.AsNoTracking()
+            .Where(r => residentIds.Contains(r.UserId) && !r.IsDeleted)
+            .Select(r => new { r.UserId, r.FirstName, r.LastName })
+            .ToListAsync();
+        var profileLookup = profiles.ToDictionary(p => p.UserId);
+
+        return invoices.Select(invoice =>
+        {
+            unitLookup.TryGetValue(invoice.UnitId, out var unit);
+            profileLookup.TryGetValue(invoice.ResidentUserId, out var profile);
+
+            return new PaymentInvoiceDto
+            {
+                Id = invoice.Id,
+                InvoiceNumber = invoice.InvoiceNumber,
+                PaymentTransactionId = invoice.PaymentTransactionId,
+                TransactionReference = invoice.TransactionReference,
+                InvoiceId = invoice.InvoiceId,
+                ResidentUserId = invoice.ResidentUserId,
+                ResidentName = profile is null ? string.Empty : $"{profile.FirstName} {profile.LastName}".Trim(),
+                UnitId = invoice.UnitId,
+                UnitNumber = unit?.UnitNumber ?? string.Empty,
+                PropertyId = invoice.PropertyId,
+                PropertyName = unit?.PropertyName ?? string.Empty,
+                Amount = invoice.Amount,
+                Currency = invoice.Currency,
+                Purpose = invoice.Purpose,
+                Method = invoice.Method,
+                Status = invoice.Status,
+                PaymentDate = invoice.PaymentDate,
+                ConfirmationNumber = invoice.ConfirmationNumber,
+                IssuedAt = invoice.CreatedAt,
             };
         }).ToList();
     }

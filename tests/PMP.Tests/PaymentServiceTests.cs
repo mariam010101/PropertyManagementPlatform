@@ -358,6 +358,187 @@ public class PaymentServiceTests
         Assert.Empty(result);
     }
 
+    // ---------- payment invoices (AC-01..AC-08) ----------
+
+    [Fact]
+    public async Task Pay_FullAmount_CreatesOneInvoiceForThePayment()
+    {
+        var ctx = await CreateContextAsync();
+        var invoice = NewInvoice(ctx, amount: 1000m, dueDate: DateTimeOffset.UtcNow.AddDays(4));
+        ctx.PaymentDb.Invoices.Add(invoice);
+        await ctx.PaymentDb.SaveChangesAsync();
+
+        var pay = await ctx.Service.PayInvoiceAsync(
+            ctx.ResidentId, [AppRoles.Resident], invoice.Id, new PayInvoiceRequest { Amount = 1000m });
+
+        Assert.True(pay.Succeeded, pay.Error);
+
+        var receipt = Assert.Single(await ctx.PaymentDb.PaymentInvoices.ToListAsync());
+        Assert.Equal(1000m, receipt.Amount);
+        Assert.Equal(ctx.ResidentId, receipt.ResidentUserId);
+        Assert.Equal(invoice.Id, receipt.InvoiceId);
+        Assert.Equal(ctx.Unit.Id, receipt.UnitId);
+        Assert.Equal(ctx.Property.Id, receipt.PropertyId);
+        Assert.Equal(PaymentInvoiceStatus.Issued, receipt.Status);
+        Assert.Equal(pay.Data!.Id, receipt.PaymentTransactionId);
+        Assert.False(string.IsNullOrWhiteSpace(receipt.ConfirmationNumber));
+        Assert.Matches(@"^INV-\d{4}-\d{6}$", receipt.InvoiceNumber);
+    }
+
+    [Fact]
+    public async Task Pay_DeclinedAttempt_DoesNotCreateInvoice()
+    {
+        var ctx = await CreateContextAsync();
+        var invoice = NewInvoice(ctx, amount: 1000m, dueDate: DateTimeOffset.UtcNow.AddDays(4));
+        ctx.PaymentDb.Invoices.Add(invoice);
+        await ctx.PaymentDb.SaveChangesAsync();
+
+        var pay = await ctx.Service.PayInvoiceAsync(
+            ctx.ResidentId, [AppRoles.Resident], invoice.Id, new PayInvoiceRequest { Amount = 2000m });
+
+        Assert.False(pay.Succeeded);
+        Assert.Empty(await ctx.PaymentDb.PaymentInvoices.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Pay_OnAlreadyPaidRequest_IsRejected_AndDoesNotDuplicateInvoice()
+    {
+        var ctx = await CreateContextAsync();
+        var invoice = NewInvoice(ctx, amount: 500m, dueDate: DateTimeOffset.UtcNow.AddDays(4));
+        ctx.PaymentDb.Invoices.Add(invoice);
+        await ctx.PaymentDb.SaveChangesAsync();
+
+        var first = await ctx.Service.PayInvoiceAsync(
+            ctx.ResidentId, [AppRoles.Resident], invoice.Id, new PayInvoiceRequest { Amount = 500m });
+        var second = await ctx.Service.PayInvoiceAsync(
+            ctx.ResidentId, [AppRoles.Resident], invoice.Id, new PayInvoiceRequest { Amount = 500m });
+
+        Assert.True(first.Succeeded);
+        Assert.False(second.Succeeded);
+        Assert.Single(await ctx.PaymentDb.PaymentInvoices.ToListAsync());
+        Assert.Single(await ctx.PaymentDb.PaymentTransactions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task InvoiceNumbers_AreSequentialAndUnique()
+    {
+        var ctx = await CreateContextAsync();
+        var invoice = NewInvoice(ctx, amount: 100m, dueDate: DateTimeOffset.UtcNow.AddDays(4));
+        ctx.PaymentDb.Invoices.Add(invoice);
+        await ctx.PaymentDb.SaveChangesAsync();
+
+        await ctx.Service.PayInvoiceAsync(
+            ctx.ResidentId, [AppRoles.Resident], invoice.Id, new PayInvoiceRequest { Amount = 30m });
+        await ctx.Service.PayInvoiceAsync(
+            ctx.ResidentId, [AppRoles.Resident], invoice.Id, new PayInvoiceRequest { Amount = 40m });
+
+        var numbers = (await ctx.PaymentDb.PaymentInvoices.ToListAsync())
+            .Select(pi => pi.InvoiceNumber)
+            .OrderBy(n => n)
+            .ToList();
+
+        Assert.Equal(2, numbers.Count);
+        Assert.Equal(2, numbers.Distinct().Count());
+        var year = DateTimeOffset.UtcNow.Year;
+        Assert.Equal($"INV-{year}-000001", numbers[0]);
+        Assert.Equal($"INV-{year}-000002", numbers[1]);
+    }
+
+    [Fact]
+    public async Task MyPaymentInvoices_ReturnsOnlyCallersOwnInvoices()
+    {
+        var ctx = await CreateContextAsync();
+        var otherResident = Guid.NewGuid();
+        ctx.ResidentDb.ResidentProfiles.Add(new ResidentProfile
+        {
+            UserId = otherResident, FirstName = "Oscar", LastName = "Other", Email = "oscar@pmp.test", IsActive = true,
+        });
+        await ctx.ResidentDb.SaveChangesAsync();
+
+        var mine = NewInvoice(ctx, amount: 200m, residentId: ctx.ResidentId);
+        var other = NewInvoice(ctx, amount: 900m, residentId: otherResident);
+        ctx.PaymentDb.Invoices.AddRange(mine, other);
+        await ctx.PaymentDb.SaveChangesAsync();
+
+        await ctx.Service.PayInvoiceAsync(ctx.ResidentId, [AppRoles.Resident], mine.Id, new PayInvoiceRequest { Amount = 200m });
+        await ctx.Service.PayInvoiceAsync(otherResident, [AppRoles.Resident], other.Id, new PayInvoiceRequest { Amount = 900m });
+
+        var mineList = await ctx.Service.GetMyPaymentInvoicesAsync(ctx.ResidentId);
+
+        Assert.Single(mineList);
+        Assert.Equal(ctx.ResidentId, mineList[0].ResidentUserId);
+        Assert.Equal(200m, mineList[0].Amount);
+    }
+
+    [Fact]
+    public async Task GetPaymentInvoice_ResidentCannotReadAnotherResidentsInvoice()
+    {
+        var ctx = await CreateContextAsync();
+        var otherResident = Guid.NewGuid();
+        ctx.ResidentDb.ResidentProfiles.Add(new ResidentProfile
+        {
+            UserId = otherResident, FirstName = "Oscar", LastName = "Other", Email = "oscar@pmp.test", IsActive = true,
+        });
+        await ctx.ResidentDb.SaveChangesAsync();
+
+        var other = NewInvoice(ctx, amount: 900m, residentId: otherResident);
+        ctx.PaymentDb.Invoices.Add(other);
+        await ctx.PaymentDb.SaveChangesAsync();
+
+        var pay = await ctx.Service.PayInvoiceAsync(otherResident, [AppRoles.Resident], other.Id, new PayInvoiceRequest { Amount = 900m });
+        Assert.True(pay.Succeeded);
+        var receipt = Assert.Single(await ctx.PaymentDb.PaymentInvoices.ToListAsync());
+
+        var result = await ctx.Service.GetPaymentInvoiceAsync(ctx.ResidentId, [AppRoles.Resident], receipt.Id);
+
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task GetPaymentInvoices_ManagerScoped_AccountantSeesAll_TechnicianSeesNothing()
+    {
+        var ctx = await CreateContextAsync();
+
+        var otherManager = Guid.NewGuid();
+        var otherResident = Guid.NewGuid();
+        var otherProperty = new ManagedProperty { Name = "Other", Address = "2 Far", ManagerUserId = otherManager };
+        ctx.PropertyDb.Properties.Add(otherProperty);
+        var otherBuilding = new Building { PropertyId = otherProperty.Id, Name = "Tower B", Property = otherProperty };
+        ctx.PropertyDb.Buildings.Add(otherBuilding);
+        var otherUnit = new ResidentialUnit
+        {
+            BuildingId = otherBuilding.Id,
+            UnitNumber = "B-201",
+            UnitType = "OneBedroom",
+            OperationalStatus = UnitOperationalStatus.Active,
+            Building = otherBuilding,
+        };
+        ctx.PropertyDb.ResidentialUnits.Add(otherUnit);
+        ctx.ResidentDb.ResidentProfiles.Add(new ResidentProfile
+        {
+            UserId = otherResident, FirstName = "Oscar", LastName = "Other", Email = "oscar@pmp.test", IsActive = true,
+        });
+        await ctx.PropertyDb.SaveChangesAsync();
+        await ctx.ResidentDb.SaveChangesAsync();
+
+        var mine = NewInvoice(ctx, amount: 200m);
+        var other = NewInvoice(ctx, amount: 900m, residentId: otherResident, unitId: otherUnit.Id, propertyId: otherProperty.Id);
+        ctx.PaymentDb.Invoices.AddRange(mine, other);
+        await ctx.PaymentDb.SaveChangesAsync();
+
+        await ctx.Service.PayInvoiceAsync(ctx.ResidentId, [AppRoles.Resident], mine.Id, new PayInvoiceRequest { Amount = 200m });
+        await ctx.Service.PayInvoiceAsync(otherResident, [AppRoles.Resident], other.Id, new PayInvoiceRequest { Amount = 900m });
+
+        var forManager = await ctx.Service.GetPaymentInvoicesAsync(ctx.ManagerId, [AppRoles.PropertyManager], null, null, null, null, null);
+        var forAccountant = await ctx.Service.GetPaymentInvoicesAsync(Guid.NewGuid(), [AppRoles.Accountant], null, null, null, null, null);
+        var forTechnician = await ctx.Service.GetPaymentInvoicesAsync(Guid.NewGuid(), [AppRoles.Technician], null, null, null, null, null);
+
+        Assert.Single(forManager);
+        Assert.Equal(ctx.ResidentId, forManager[0].ResidentUserId);
+        Assert.Equal(2, forAccountant.Count);
+        Assert.Empty(forTechnician);
+    }
+
     // ---------- helpers ----------
 
     private static Invoice NewInvoice(

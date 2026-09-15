@@ -19,6 +19,10 @@ public class PaymentDbContext : DbContext
 
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
 
+    public DbSet<PaymentInvoice> PaymentInvoices => Set<PaymentInvoice>();
+
+    public DbSet<InvoiceNumberSequence> InvoiceNumberSequences => Set<InvoiceNumberSequence>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -56,6 +60,42 @@ public class PaymentDbContext : DbContext
             e.Property(p => p.Amount).HasPrecision(18, 2);
             e.HasIndex(p => p.TransactionReference).IsUnique();
             e.HasIndex(p => p.ResidentUserId);
+        });
+
+        builder.Entity<PaymentInvoice>(e =>
+        {
+            e.ToTable("payment_invoices");
+            e.Property(pi => pi.InvoiceNumber).HasMaxLength(20).IsRequired();
+            e.Property(pi => pi.TransactionReference).HasMaxLength(50).IsRequired();
+            e.Property(pi => pi.Currency).HasMaxLength(3).IsRequired();
+            e.Property(pi => pi.Purpose).HasMaxLength(30).IsRequired();
+            e.Property(pi => pi.ConfirmationNumber).HasMaxLength(50);
+            e.Property(pi => pi.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
+            e.Property(pi => pi.Method).HasConversion<string>().HasMaxLength(30).IsRequired();
+            e.Property(pi => pi.Amount).HasPrecision(18, 2);
+
+            // Idempotency + numbering invariants (AC-07, AC-08): one invoice per payment
+            // and never two invoices with the same number.
+            e.HasIndex(pi => pi.PaymentTransactionId).IsUnique();
+            e.HasIndex(pi => pi.InvoiceNumber).IsUnique();
+            e.HasIndex(pi => pi.ResidentUserId);
+            e.HasIndex(pi => pi.PropertyId);
+
+            e.HasOne<PaymentTransaction>()
+                .WithOne()
+                .HasForeignKey<PaymentInvoice>(pi => pi.PaymentTransactionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne<Invoice>()
+                .WithMany()
+                .HasForeignKey(pi => pi.InvoiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<InvoiceNumberSequence>(e =>
+        {
+            e.ToTable("invoice_number_sequences");
+            e.HasIndex(s => s.Year).IsUnique();
         });
     }
 }

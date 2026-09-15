@@ -28,6 +28,8 @@
     <ProjectReference Include="..\..\src\PMP.Modules.Lease\PMP.Modules.Lease.csproj" />
     <ProjectReference Include="..\..\src\PMP.Modules.Communication\PMP.Modules.Communication.csproj" />
     <ProjectReference Include="..\..\src\PMP.Modules.Payment\PMP.Modules.Payment.csproj" />
+    <ProjectReference Include="..\..\src\PMP.Modules.Booking\PMP.Modules.Booking.csproj" />
+    <ProjectReference Include="..\..\src\PMP.Modules.Security\PMP.Modules.Security.csproj" />
   </ItemGroup>
 
 </Project>

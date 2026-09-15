@@ -112,7 +112,7 @@ Related rules: BRULE-PAY-001..006.
 | --- | --- | --- | --- |
 | FR-PAY-001 | Display outstanding balances | 🟢 MET | [`PaymentService.GetBalanceAsync()`](src/PMP.Modules.Payment/Services/PaymentService.cs:186) — invoice `Amount - PaidAmount` |
 | FR-PAY-002 | Pay rent electronically | 🟢 MET | [`PayInvoiceAsync()`](src/PMP.Modules.Payment/Services/PaymentService.cs:253) — simulated card/bank payment |
-| FR-PAY-003 | Generate payment confirmations | 🟢 MET | Confirmation number returned on each completed payment (BRULE-PAY-005) |
+| FR-PAY-003 | Generate payment confirmations | 🟢 MET | Confirmation number returned on each completed payment (BRULE-PAY-005); a `PaymentInvoice` receipt (`INV-YYYY-NNNNNN`, 1:1 with the payment) is generated and linked to each successful payment |
 | FR-PAY-004 | Maintain payment history | 🟢 MET | `payment_transactions` immutable rows; `GetPaymentHistoryAsync` |
 | FR-PAY-005 | Managers monitor payment status | 🟢 MET | `GetInvoicesAsync` / `GetPaymentHistoryAsync` (manager/admin scope) |
 | FR-PAY-006 | Generate financial reports | 🟢 MET | [`GetFinancialReportAsync()`](src/PMP.Modules.Payment/Services/PaymentService.cs:316) |

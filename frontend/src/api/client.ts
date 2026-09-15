@@ -395,6 +395,31 @@ export interface FinancialReportDto {
   overdueTotal: number
 }
 
+export type PaymentInvoiceStatus = 'Issued' | 'Voided'
+
+/** The receipt generated when a resident payment completes (BR-005, AC-01..AC-08). */
+export interface PaymentInvoiceDto {
+  id: string
+  invoiceNumber: string
+  paymentTransactionId: string
+  transactionReference: string
+  invoiceId: string
+  residentUserId: string
+  residentName: string
+  unitId: string
+  unitNumber: string
+  propertyId: string
+  propertyName: string
+  amount: number
+  currency: string
+  purpose: string
+  method: string
+  status: PaymentInvoiceStatus
+  paymentDate: string
+  confirmationNumber?: string
+  issuedAt: string
+}
+
 export interface FacilityDto {
   id: string
   propertyId: string
@@ -630,6 +655,26 @@ export const api = {
     request<{ expectedFromInvoices: number; collected: number; difference: number; isBalanced: boolean }>(
       '/payments/reconciliation',
     ),
+
+  // payment invoices (BR-005): receipts generated for successful payments
+  getMyInvoices: () => request<PaymentInvoiceDto[]>('/invoices/my'),
+  getPaymentInvoices: (filters?: {
+    status?: PaymentInvoiceStatus
+    residentUserId?: string
+    propertyId?: string
+    from?: string
+    to?: string
+  }) => {
+    const query = new URLSearchParams()
+    if (filters?.status) query.set('status', filters.status)
+    if (filters?.residentUserId) query.set('residentUserId', filters.residentUserId)
+    if (filters?.propertyId) query.set('propertyId', filters.propertyId)
+    if (filters?.from) query.set('from', filters.from)
+    if (filters?.to) query.set('to', filters.to)
+    const suffix = query.toString()
+    return request<PaymentInvoiceDto[]>(`/invoices${suffix ? `?${suffix}` : ''}`)
+  },
+  getPaymentInvoice: (id: string) => request<PaymentInvoiceDto>(`/invoices/${id}`),
 
   // facility booking (BR-009)
   getFacilities: (propertyId?: string) =>

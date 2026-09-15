@@ -231,6 +231,52 @@ public record CancelPaymentRequestRequest
     public string? Reason { get; init; }
 }
 
+/// <summary>
+/// The invoice document generated for a successful payment (AC-01..AC-08): what was
+/// paid, by whom, for what, against which unit/property, when, and its stable number.
+/// </summary>
+public record PaymentInvoiceDto
+{
+    public Guid Id { get; init; }
+
+    public string InvoiceNumber { get; init; } = string.Empty;
+
+    public Guid PaymentTransactionId { get; init; }
+
+    public string TransactionReference { get; init; } = string.Empty;
+
+    /// <summary>The payment request (bill) this invoice settles.</summary>
+    public Guid InvoiceId { get; init; }
+
+    public Guid ResidentUserId { get; init; }
+
+    public string ResidentName { get; init; } = string.Empty;
+
+    public Guid UnitId { get; init; }
+
+    public string UnitNumber { get; init; } = string.Empty;
+
+    public Guid PropertyId { get; init; }
+
+    public string PropertyName { get; init; } = string.Empty;
+
+    public decimal Amount { get; init; }
+
+    public string Currency { get; init; } = PaymentCurrency.Default;
+
+    public string Purpose { get; init; } = PaymentPurpose.Rent;
+
+    public PaymentMethod Method { get; init; }
+
+    public PaymentInvoiceStatus Status { get; init; }
+
+    public DateTimeOffset PaymentDate { get; init; }
+
+    public string? ConfirmationNumber { get; init; }
+
+    public DateTimeOffset IssuedAt { get; init; }
+}
+
 public record FinancialReportDto
 {
     public decimal TotalCollected { get; init; }

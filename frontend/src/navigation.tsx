@@ -4,6 +4,7 @@ import AdminUsersPage from './pages/AdminUsersPage'
 import BookingsPage from './pages/BookingsPage'
 import CommunicationPage from './pages/CommunicationPage'
 import DashboardPage from './pages/DashboardPage'
+import InvoicesPage from './pages/InvoicesPage'
 import LeasesPage from './pages/LeasesPage'
 import MaintenancePage from './pages/MaintenancePage'
 import PaymentsPage from './pages/PaymentsPage'
@@ -53,6 +54,7 @@ export const APP_ROUTES: AppRoute[] = [
   { path: '/residents', label: 'Residents', icon: 'users', roles: ROLES.manager, Component: ResidentsPage },
   { path: '/leases', label: 'Leases', icon: 'document', roles: ROLES.any, Component: LeasesPage },
   { path: '/payments', label: 'Payments', icon: 'card', roles: ROLES.payments, Component: PaymentsPage },
+  { path: '/invoices', label: 'Invoices', icon: 'document', roles: ROLES.payments, Component: InvoicesPage },
   { path: '/maintenance', label: 'Maintenance', icon: 'checklist', roles: ROLES.staff, Component: MaintenancePage },
   { path: '/bookings', label: 'Facility booking', icon: 'calendar', roles: ROLES.residentOrManager, Component: BookingsPage },
   { path: '/communication', label: 'Communication', icon: 'message', roles: ROLES.any, Component: CommunicationPage },

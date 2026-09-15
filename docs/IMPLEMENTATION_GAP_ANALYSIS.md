@@ -1,6 +1,6 @@
 # PMP Implementation Gap Analysis
 
-**Last Updated:** 2026-09-11 09:54 UTC (2026-09-11 13:54 Asia/Yerevan)
+**Last Updated:** 2026-09-14 21:56 UTC (2026-09-15 01:56 Asia/Yerevan)
 **Companion document:** [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
 **Method:** every item below was identified by comparing approved requirements/ADRs
 ([`docs/adr/`](docs/adr/), [`docs/requirements-compliance.md`](docs/requirements-compliance.md),
@@ -12,7 +12,7 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 
 | GAP | Title | Module | REQ / ADR | Priority | Related task | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| GAP-001 | Automated test coverage is still thin outside the verified slices: 46 tests total (23 unit + 23 API integration) after the Payment work; no Resident/Lease/Communication/Booking/Security service tests, no background-job/attachment tests, no frontend tests | Cross-module | all FR sets; ADR-0005 | P1 | IMP-040, IMP-041 | IN_PROGRESS |
+| GAP-001 | Automated test coverage improved but still incomplete: 101 tests after IMP-040 and every module now has service-level tests; no background-job/attachment tests, no frontend tests | Cross-module | all FR sets; ADR-0005 | P1 | IMP-040 (done), IMP-041 | IN_PROGRESS |
 | GAP-002 | Mobile platform access not implemented (no native app or PWA; responsive web only) | Mobile | FR-MOBILE-001..005; ADR-0007, ADR-0012 | P2 | IMP-027 | NOT_STARTED (deferred) |
 | GAP-003 | Role revocation does not apply to already-issued 15-minute JWTs | Auth | FR-RBAC-006, BRULE-RBAC-006; ADR-0003/0004 | P1 | IMP-031 | GAP |
 | GAP-004 | No dedicated owner "edit my profile" endpoint that mutates Identity name fields | Auth | FR-AUTH-005, BRULE-AUTH-006 | P1 | IMP-030 | GAP |
@@ -35,27 +35,27 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 | GAP-013 | Platform NFRs (performance, availability, backup/restore of `pmp.db`, observability) have no requirement IDs and no verification — pure traceability gap | Cross-cutting | none exist | P3 | IMP-044, IMP-052 | GAP |
 | GAP-014 | Maintenance notifications carry no request context (the request title is absent from the persisted payload), so a resident cannot identify which request a notification refers to | Maintenance / Communication | FR-MNT-005, FR-COM-001 | P3 | IMP-040 | GAP |
 | GAP-023 | Internal `docs/` links are written repo-root-relative and with `:line` suffixes, so they do not resolve when rendered on GitHub (which resolves relative to the containing file and uses `#Lnnn`) | Docs | — | P3 | IMP-051, IMP-052 | GAP |
+| GAP-024 | Resident first-unit assignment is Administrator-only: manager scoping grants access only to residents already occupying one of the manager's units, so a newly registered resident cannot be seen or assigned by a Property Manager | Resident | FR-RES-003, BRULE-RES-002; ADR-0008 | P2 | IMP-004 | GAP (decision-required) |
+| GAP-025 | No invoice PDF/document export: payment invoices render as an on-screen details view only; no PDF/CSV invoice export format is defined or produced | Payment | FR-PAY-003; ADR-0012 | P3 | IMP-053 | GAP |
 
 ---
 
 ## Gap detail
 
-### GAP-001 — Automated test coverage still thin outside the MVP API slice
-- **Affected module:** cross-module (Resident, Payment, Lease, Communication, Booking, Security services; the three hosted jobs; frontend).
+### GAP-001 — Automated test coverage incomplete (background jobs, attachments, frontend)
+- **Affected module:** cross-module (the three hosted jobs; attachment upload paths; frontend).
 - **Related requirement/ADR:** all FR sets; ADR-0005 (service `Result` pattern makes service-level testing the intended seam).
-- **Current state:** `IMP-006` (2026-09-10) added 12 API integration tests and `IMP-020`/`IMP-021`
-  (2026-09-10) added 15 Payment service unit tests
-  ([`PaymentServiceTests.cs`](tests/PMP.Tests/PaymentServiceTests.cs:1)) plus 11 Payment API integration tests
-  ([`PaymentApiTests.cs`](tests/PMP.Tests/Integration/PaymentApiTests.cs:1)). The suite is now 46 passed /
-  0 failed (23 unit + 23 API integration) after the empty `UnitTest1.cs` placeholder was removed by `IMP-050`
-  (2026-09-11). Still uncovered: service-level tests for
-  Resident/Lease/Communication/Booking/Security, the maintenance 7-day auto-close job, the lease/due-date
-  background sweeps, attachment upload, and all frontend behaviour.
-- **What remains:** add the remaining per-module service tests reusing the
-  [`TestDoubles.cs`](tests/PMP.Tests/TestDoubles.cs) pattern, add tests for the three hosted services,
-  and stand up frontend testing.
+- **Current state:** `IMP-006` (2026-09-10) added 12 API integration tests, `IMP-020`/`IMP-021` added Payment
+  unit + API tests, and **`IMP-040` (2026-09-11) added module-level service tests for every remaining module**
+  (`AuthTokenServiceTests`, `ResidentServiceTests`, `LeaseServiceTests`, `CommunicationServiceTests`,
+  `BookingServiceTests`, `SecurityServiceTests`) plus shared test doubles. The suite is now **101 passed /
+  0 failed** (14 test files) and the TDD workflow is documented in [`docs/TESTING.md`](docs/TESTING.md).
+  **Still uncovered:** the maintenance 7-day auto-close job, the lease-expiry and payment due-date background
+  sweeps, attachment upload, the 7-day maintenance reopen path, and all frontend behaviour.
+- **What remains:** add tests for the three hosted services and the attachment paths (reusing the
+  [`TestDoubles.cs`](tests/PMP.Tests/TestDoubles.cs) pattern), and stand up frontend testing (`IMP-041`).
 - **Priority:** P1.
-- **Related tasks:** `IMP-040` (per-module expansion, next task), `IMP-041` (frontend), `IMP-042` (CI).
+- **Related tasks:** `IMP-040` (per-module expansion — done), `IMP-041` (frontend), `IMP-042` (CI).
 
 ### GAP-002 — BR-012 mobile platform not implemented
 - **Affected module:** Mobile (no project exists).
@@ -370,6 +370,38 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
   returns undefined for empty `200`/`204` responses, which the password/logout endpoints rely on.
 - **Priority:** P2 — resolved. **Related task:** IMP-001, IMP-007.
 
+### GAP-024 — Resident first-unit assignment is Administrator-only (manager scoping blocks bootstrap)
+- **Affected module:** Resident (assignment + manager listing).
+- **Related requirement/ADR:** FR-RES-003 (assign a resident to a unit), BRULE-RES-002; ADR-0008 (resident account provisioning).
+- **Current state (observed by test, 2026-09-11):**
+  [`ResidentService.CanAccessResidentAsync`](src/PMP.Modules.Resident/Services/ResidentService.cs:274) grants a
+  Property Manager access to a resident only when that resident already has an active association to a unit the
+  manager manages, and [`GetResidentsAsync`](src/PMP.Modules.Resident/Services/ResidentService.cs:64) filters the
+  same way. A newly registered resident therefore has no managed-unit association, is not visible to a Property
+  Manager, and cannot have their first unit assigned by one — only an Administrator can (Administrators bypass
+  the scoping check). Characterized by the unit test
+  `AssignUnitAsync_WhenManagerHasNoExistingAssociationWithTheResident_IsRejected` in
+  [`ResidentServiceTests.cs`](tests/PMP.Tests/ResidentServiceTests.cs:1).
+- **Why it matters:** if the intended flow is "resident registers → their property's manager assigns the unit",
+  the current rule prevents it. If Administrator-only bootstrap is intended, it must be stated explicitly.
+- **What remains:** a product/requirements decision — (a) allow a manager to establish the first association for
+  any resident, or (b) confirm Administrator-only bootstrap and document it. No production code was changed
+  (`IMP-040` recorded the behaviour with a test instead of silently resolving it).
+- **Priority:** P2 — affects the FR-RES-003 assignment workflow.
+- **Related task:** `IMP-004`.
+
+### GAP-025 — No invoice PDF/document export
+- **Affected module:** Payment (BR-005 — payment invoices/receipts).
+- **Related requirement/ADR:** FR-PAY-003 (generate payment confirmations); ADR-0012.
+- **Current state:** a successful payment generates a `PaymentInvoice` with a stable `INV-YYYY-NNNNNN` number, and
+  residents/accountants view it through the on-screen details view ([`InvoicesPage`](frontend/src/pages/InvoicesPage.tsx:1))
+  backed by [`InvoicesController`](src/PMP.Api/Controllers/InvoicesController.cs:23). No PDF (or other portable
+  document) export exists, and the project has no PDF-generation infrastructure to reuse.
+- **What remains:** define an export format and add document generation when required; a well-designed on-screen
+  invoice details view satisfies the current MVP.
+- **Priority:** P3 — future enhancement.
+- **Related task:** `IMP-053`.
+
 ---
 
 ## Unverifiable / decision-required items (not counted as gaps)
@@ -377,6 +409,6 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 | Item | Why it is not a gap yet |
 | --- | --- |
 | MVP definition boundary (ADR-0007 vs ADR-0012 vs README) | Conflict is recorded (C-1, GAP-010); needs a documentation decision, not implementation work. |
-| "Reopen a completed request within 7 days" behaviour | Verified present in code — [`MaintenanceService`](src/PMP.Modules.Maintenance/Services/MaintenanceService.cs:391) allows the requester to move Completed → In Progress within 7 days — but it is not yet covered by a test (`IMP-040`), so it is not a new gap. |
+| "Reopen a completed request within 7 days" behaviour | Verified present in code — [`MaintenanceService`](src/PMP.Modules.Maintenance/Services/MaintenanceService.cs:391) allows the requester to move Completed → In Progress within 7 days — but it is still not covered by a test (remains in `GAP-001`; `IMP-040` closed without it), so it is not a new gap. |
 | Confluence "Project Plan" (page 7897101, `PMP` space) | Project-management artifact (timeline, budget, risk, backlog) — not an engineering implementation plan, so this repo plan does not duplicate it. |
 | Security/Visitor operator role | Compliance audit records that Property Manager/Administrator act as the security operator; treated as a documented decision, only revisited if FR-SEC work is re-scoped (`IMP-025`). |

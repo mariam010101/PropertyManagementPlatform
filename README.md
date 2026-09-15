@@ -27,7 +27,7 @@ JWT-based authentication with role-based access control.
 | **Backend** | ASP.NET Core 9, EF Core 9, ASP.NET Core Identity, JWT bearer |
 | **Frontend** | React 19, TypeScript, Vite, React Router |
 | **Authorization** | 5 roles + policy-based RBAC ([ADR-0004](docs/adr/0004-rbac-roles-and-policies.md)) |
-| **Tests** | xUnit — unit + API integration (real Kestrel host, throwaway SQLite) |
+| **Tests** | xUnit — unit + API integration tests (real Kestrel host, throwaway SQLite); test-first workflow in [`docs/TESTING.md`](docs/TESTING.md) |
 | **Decisions** | 12 Architecture Decision Records ([`docs/adr/`](docs/adr/)) |
 | **Traceability** | BR → FR → BRULE → ADR → IMP task → code/API → test ([`docs/traceability.md`](docs/traceability.md)) |
 | **Status** | MVP complete; post-MVP modules implemented. Verified overall progress and remaining work are tracked in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) |
@@ -53,7 +53,7 @@ The Property Management Platform centralises those operations in one role-aware 
 - a **maintenance request lifecycle** with priorities, technician assignment, history and a resident
   confirmation gate;
 - **leases** with versioned change history and documents that expire on a controlled schedule;
-- **payments** with per-resident obligations, confirmations and financial reporting;
+- **payments** with per-resident obligations, confirmations, financial reporting and invoice receipts;
 - **communication** (notifications and announcements), **facility booking** and **visitor/access** management;
 - everything governed by **role-based access control** with least privilege and an audit trail.
 
@@ -115,7 +115,7 @@ Only roles the platform actually models are listed.
 | 3 | Property Management | `PMP.Modules.Property` | Property → Building → Unit CRUD, operational status, derived occupancy, manager scoping |
 | 4 | Resident Management | `PMP.Modules.Resident` | Profiles, effective-dated unit assignment, move-out/deactivation, occupancy history |
 | 5 | Maintenance Management | `PMP.Modules.Maintenance` | Request lifecycle state machine, priorities, assignment, attachments, history, resident confirmation, auto-close |
-| 6 | Payment Management | `PMP.Modules.Payment` | Invoices/requests, obligations, payments, confirmations, history, due-date alerts |
+| 6 | Payment Management | `PMP.Modules.Payment` | Invoices/requests, obligations, payments, confirmations, history, due-date alerts, invoice receipts |
 | 7 | Financial Reporting & Accountant Access | `PMP.Modules.Payment` | Reports, reconciliation, outstanding-by-resident, scoped accountant access |
 | 8 | Lease & Document Management | `PMP.Modules.Lease` | Lease records, version history, document storage, expiry/notice lifecycle |
 | 9 | Communication & Notifications | `PMP.Modules.Communication` | Persisted notifications, announcements scoped by property, read state |
@@ -365,6 +365,7 @@ at `/swagger` when the API runs in the Development environment. Controllers, by 
 | Communication | `/api/communication` | notifications (list/read/unread-count/read-all), announcements |
 | Leases | `/api/leases` | list/detail, create, update, terminate, document upload/list, lifecycle trigger |
 | Payments | `/api/payments` | balance, invoices, pay, history, dashboard, outstanding, financial report, reconciliation |
+| Payment invoices | `/api/invoices` | resident `my` list, financial listing with filters, single invoice (ownership/scope enforced) |
 | Bookings | `/api/bookings` | facilities, availability, book, my/all bookings, cancel, configure facility |
 | Security | `/api/security` | visitors (register/check-in/check-out/list), access grants (grant/revoke/log) |
 
@@ -388,7 +389,7 @@ to drift out of date.
   - *Resident*: `ResidentProfile`, `ResidentUnit` (effective-dated, history retained).
   - *Maintenance*: `MaintenanceRequest`, `MaintenanceHistoryEntry`, `MaintenanceAttachment`.
   - *Lease*: `LeaseAgreement`, `LeaseDocument`, `LeaseHistoryEntry`.
-  - *Payment*: `Invoice` (request/obligation), `PaymentTransaction` (append-only).
+  - *Payment*: `Invoice` (request/obligation), `PaymentTransaction` (append-only), `PaymentInvoice` (receipt), `InvoiceNumberSequence`.
   - *Communication*: `Notification`, `Announcement`.
   - *Booking*: `Facility`, `FacilityBooking`.
   - *Security*: `VisitorRecord`, `AccessGrant`.
@@ -415,7 +416,7 @@ Implemented security controls:
 | Configuration | Secrets held in git-ignored `appsettings.json`; `Jwt:Key` must be ≥32 characters or startup fails |
 
 **Known limitations (recorded, not hidden):** payments are simulated (no provider integration); the email
-channel is record-only; role revocation does not invalidate an in-flight access token before expiry; no
+channel is record-only; no invoice PDF export (on-screen invoice details only); role revocation does not invalidate an in-flight access token before expiry; no
 independent security review has been run yet. Full detail and IDs are in
 [`SECURITY.md`](SECURITY.md) and [`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md).
 
@@ -430,15 +431,21 @@ Testing is deliberately **behavioural** and reported honestly as two different m
 
 | Layer | Approach |
 | --- | --- |
-| Unit tests | Services tested at the `Result` seam (the agreed testing seam from [ADR-0005](docs/adr/0005-service-result-pattern.md)), e.g. property, maintenance and payment rules |
-| API integration tests | The real API is booted (Kestrel + throwaway SQLite, configured only through environment variables — no test-only hooks in the API) and driven over HTTP. They assert the MVP journey end-to-end plus authorization negatives and payment behaviour |
-| Background jobs / attachments | **Not yet covered** (`IMP-040`) |
+| Unit tests | Services tested at the `Result` seam (the agreed testing seam from [ADR-0005](docs/adr/0005-service-result-pattern.md)) — Auth token, Property, Resident, Maintenance, Payment, Lease, Communication, Booking and Security rules |
+| API integration tests | The real API is booted (Kestrel + throwaway SQLite, configured only through environment variables — no test-only hooks in the API) and driven over HTTP. They assert the MVP journey end-to-end plus authentication, RBAC and ownership negatives |
+| Background jobs / attachments | **Not yet covered** (`GAP-001`) |
 | Frontend | **No test runner configured yet** (`IMP-041`) — the build and lint are the current gates |
-| CI | **Not yet configured** (`IMP-042`) |
+| CI | **Not yet configured** (`IMP-042` / `GAP-009`) |
 
-**Verified on 2026-09-11:** `dotnet test PropertyManagement.sln` → build clean and **46 tests passed / 0 failed**
-(23 unit + 23 API integration). Run it yourself with the command in [How to Run](#how-to-run); the suite is
-re-runnable and self-contained.
+**Verified on 2026-09-11:** `dotnet test PropertyManagement.sln` → build clean and **101 tests passed / 0 failed**
+(unit + API integration; all nine modules have service-level tests). Run it yourself with the command in
+[How to Run](#how-to-run); the suite is re-runnable and self-contained.
+
+New and changed business behaviour is implemented **test-first** (RED → GREEN → REFACTOR → VERIFY) through the
+service seam, with the expected behaviour expressed as a failing test before the production code exists.
+Behaviour added under `IMP-040` for modules that already existed is covered by characterization tests that pin
+it down so it can be changed safely. The full strategy, the TDD workflow and the exact commands are in
+[`docs/TESTING.md`](docs/TESTING.md).
 
 Testing traceability follows *requirement → acceptance criteria → test*, with defects and missing coverage
 recorded as `GAP-XXX`. The relationship *requirement → test scenario → test case → defect* is maintained in the
@@ -502,7 +509,8 @@ Honest status, derived from verified state — not from file or endpoint counts.
 
 ### In Progress / Remaining
 
-- **Test expansion** (`IMP-040`) — per-module service tests, background-job and attachment coverage.
+- **Remaining test expansion** — background-job and attachment coverage (`GAP-001`); per-module service tests
+  delivered under `IMP-040`.
 - **Frontend tests** (`IMP-041`) and **CI pipeline** (`IMP-042`).
 - **Deployment packaging** (`IMP-043`) — no Docker/Compose or production configuration yet.
 - **Security & NFR review/hardening** (`IMP-044`).
@@ -511,14 +519,14 @@ Honest status, derived from verified state — not from file or endpoint counts.
 
 ### Planned / Future
 
-- **BR-012 Mobile platform access** — not implemented (no native app or PWA); explicitly deferred until
-  `IMP-040` is green.
+- **BR-012 Mobile platform access** — not implemented (no native app or PWA); its prerequisite (`IMP-040`) is
+  now green, but it remains explicitly deferred.
 - Real payment-provider integration, email transport, and access-control hardware integration are out of scope
   until instructed.
 
-> **Verified progress:** overall **67%**, MVP **87%** (defined by the auditable weighting in
-> [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)). The gap register holds **22** items
-> (`GAP-001…GAP-022`).
+> **Verified progress:** overall **73%**, MVP **89%** (defined by the auditable weighting in
+> [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)). The gap register holds **24** items
+> (`GAP-001…GAP-024`).
 
 ---
 
@@ -528,7 +536,7 @@ Ordered by the project's own selection policy; nothing here is claimed as delive
 
 | Order | Item | Tracked as |
 | --- | --- | --- |
-| 1 | Per-module service tests + background-job/attachment coverage | `IMP-040` |
+| 1 | Background-job + attachment test coverage (per-module service tests delivered under `IMP-040`) | `GAP-001` |
 | 2 | Frontend test infrastructure and core page/route tests | `IMP-041` |
 | 3 | CI pipeline (build + `dotnet test` + frontend lint/build on every push) | `IMP-042` |
 | 4 | Deployment packaging (container/compose, production config, secrets strategy) | `IMP-043` |

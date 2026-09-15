@@ -69,6 +69,20 @@ public enum PaymentStatus
     Refunded = 3,
 }
 
+/// <summary>
+/// Lifecycle of the invoice document generated for a successful payment. An invoice
+/// is issued when its payment completes; it would only move to <see cref="Voided"/> if
+/// the underlying payment were later reversed (refund handling is not yet implemented).
+/// </summary>
+public enum PaymentInvoiceStatus
+{
+    /// <summary>Generated for a completed payment and visible to the payer/accounting.</summary>
+    Issued = 0,
+
+    /// <summary>Reserved for a future payment reversal (refund) transition.</summary>
+    Voided = 1,
+}
+
 public enum PaymentMethod
 {
     Card = 0,

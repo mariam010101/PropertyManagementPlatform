@@ -229,6 +229,110 @@ public class PaymentApiTests
         await CancelAsync(manager.AccessToken, request.Id);
     }
 
+    // ---------- payment invoices (AC-01..AC-08) ----------
+
+    [Theory]
+    [InlineData("/api/invoices")]
+    [InlineData("/api/invoices/my")]
+    public async Task Anonymous_IsRejected_OnInvoiceEndpoints(string path)
+    {
+        var result = await _api.GetAsync(path);
+        Assert.True(result.Code == 401, $"Expected 401 for anonymous {path} but got {result}");
+    }
+
+    [Fact]
+    public async Task Resident_PaysAndReadsOwnInvoice()
+    {
+        var manager = await _api.LoginAsync(ManagerEmail, ManagerPassword);
+        var resident = await _api.LoginAsync(ResidentEmail, ResidentPassword);
+        var lease = await GetSeededLeaseAsync(manager.AccessToken, resident.UserId);
+        var request = await CreateRentRequestAsync(manager.AccessToken, lease.Id);
+
+        var pay = await _api.PostAsync(
+            $"/api/payments/invoices/{request.Id}/pay",
+            new PayInvoiceRequest { Amount = lease.MonthlyRent },
+            resident.AccessToken);
+        Assert.True(pay.Code == 200, $"Payment failed: {pay}");
+
+        var my = await _api.GetAsync("/api/invoices/my", resident.AccessToken);
+        Assert.True(my.Code == 200, $"GET /api/invoices/my failed: {my}");
+        var invoices = _api.Deserialize<List<PaymentInvoiceDto>>(my.Body);
+        var invoice = invoices.FirstOrDefault(i => i.InvoiceId == request.Id);
+        Assert.NotNull(invoice);
+        Assert.Equal(lease.MonthlyRent, invoice.Amount);
+        Assert.Equal(resident.UserId, invoice.ResidentUserId);
+        Assert.Equal(PaymentInvoiceStatus.Issued, invoice.Status);
+        Assert.Matches(@"^INV-\d{4}-\d{6}$", invoice.InvoiceNumber);
+        Assert.False(string.IsNullOrWhiteSpace(invoice.ConfirmationNumber));
+
+        var single = await _api.GetAsync($"/api/invoices/{invoice.Id}", resident.AccessToken);
+        Assert.True(single.Code == 200, $"GET /api/invoices/{{id}} failed: {single}");
+        var detail = _api.Deserialize<PaymentInvoiceDto>(single.Body);
+        Assert.Equal(invoice.InvoiceNumber, detail.InvoiceNumber);
+    }
+
+    [Fact]
+    public async Task Resident_CannotReadAnotherResidentsInvoice()
+    {
+        var manager = await _api.LoginAsync(ManagerEmail, ManagerPassword);
+        var resident = await _api.LoginAsync(ResidentEmail, ResidentPassword);
+        var lease = await GetSeededLeaseAsync(manager.AccessToken, resident.UserId);
+        var request = await CreateRentRequestAsync(manager.AccessToken, lease.Id);
+
+        var pay = await _api.PostAsync(
+            $"/api/payments/invoices/{request.Id}/pay",
+            new PayInvoiceRequest { Amount = lease.MonthlyRent },
+            resident.AccessToken);
+        Assert.True(pay.Code == 200, $"Payment failed: {pay}");
+
+        var my = await _api.GetAsync("/api/invoices/my", resident.AccessToken);
+        var invoice = _api.Deserialize<List<PaymentInvoiceDto>>(my.Body).First(i => i.InvoiceId == request.Id);
+
+        var other = await RegisterAndLoginResidentAsync();
+        var direct = await _api.GetAsync($"/api/invoices/{invoice.Id}", other);
+        Assert.True(direct.Code == 400, $"A resident must not read another resident's invoice but got {direct}");
+
+        var others = await _api.GetAsync("/api/invoices/my", other);
+        Assert.True(others.Code == 200);
+        Assert.DoesNotContain(_api.Deserialize<List<PaymentInvoiceDto>>(others.Body), i => i.Id == invoice.Id);
+    }
+
+    [Fact]
+    public async Task Resident_CannotAccessAccountantInvoiceListing()
+    {
+        var resident = await _api.LoginAsync(ResidentEmail, ResidentPassword);
+        var result = await _api.GetAsync("/api/invoices", resident.AccessToken);
+        Assert.True(result.Code == 403, $"Resident must not access the financial invoice listing but got {result}");
+    }
+
+    [Fact]
+    public async Task Accountant_CanReadInvoices_TechnicianCannot()
+    {
+        var manager = await _api.LoginAsync(ManagerEmail, ManagerPassword);
+        var resident = await _api.LoginAsync(ResidentEmail, ResidentPassword);
+        var lease = await GetSeededLeaseAsync(manager.AccessToken, resident.UserId);
+        var request = await CreateRentRequestAsync(manager.AccessToken, lease.Id);
+
+        var pay = await _api.PostAsync(
+            $"/api/payments/invoices/{request.Id}/pay",
+            new PayInvoiceRequest { Amount = lease.MonthlyRent },
+            resident.AccessToken);
+        Assert.True(pay.Code == 200, $"Payment failed: {pay}");
+
+        var accountant = await _api.LoginAsync("accountant@pmp.com", "Accountant123!");
+        var list = await _api.GetAsync("/api/invoices", accountant.AccessToken);
+        Assert.True(list.Code == 200, $"Accountant must read invoices but got {list}");
+        var invoices = _api.Deserialize<List<PaymentInvoiceDto>>(list.Body);
+        var invoice = invoices.FirstOrDefault(i => i.InvoiceId == request.Id);
+        Assert.NotNull(invoice);
+        Assert.False(string.IsNullOrWhiteSpace(invoice.InvoiceNumber));
+        Assert.False(string.IsNullOrWhiteSpace(invoice.ResidentName));
+
+        var technician = await _api.LoginAsync(TechnicianEmail, TechnicianPassword);
+        var denied = await _api.GetAsync("/api/invoices", technician.AccessToken);
+        Assert.True(denied.Code == 403, $"Technician must not access invoices but got {denied}");
+    }
+
     // ---------- helpers ----------
 
     private async Task<PaymentDashboardDto> GetDashboardAsync(string accessToken)
