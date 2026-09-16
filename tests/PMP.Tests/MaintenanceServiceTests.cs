@@ -135,4 +135,55 @@ public class MaintenanceServiceTests
             new CreateMaintenanceRequestRequest { Title = "Nope", UnitId = foreignUnit, Priority = MaintenancePriority.Low });
         Assert.False(foreignSubmit.Succeeded);
     }
+
+    [Fact]
+    public async Task ClosedRequest_IsImmutable_RejectsFurtherTransitions()
+    {
+        var (service, unitId, _, _) = await Arrange();
+
+        var submit = await service.SubmitAsync(_residentUserId, new[] { AppRoles.Resident },
+            new CreateMaintenanceRequestRequest { Title = "Leak", UnitId = unitId, Priority = MaintenancePriority.Medium });
+        Assert.True(submit.Succeeded);
+
+        var requestId = submit.Data!.Id;
+        await service.AssignAsync(_managerUserId, new[] { AppRoles.PropertyManager }, requestId,
+            new AssignMaintenanceRequest { TechnicianUserId = _techUserId });
+        await service.UpdateStatusAsync(_techUserId, new[] { AppRoles.Technician }, requestId,
+            new UpdateMaintenanceStatusRequest { Status = MaintenanceStatus.InProgress });
+        await service.UpdateStatusAsync(_techUserId, new[] { AppRoles.Technician }, requestId,
+            new UpdateMaintenanceStatusRequest { Status = MaintenanceStatus.Completed });
+        var confirm = await service.ConfirmAsync(_residentUserId, new[] { AppRoles.Resident }, requestId,
+            new ConfirmCompletionRequest());
+
+        Assert.True(confirm.Succeeded);
+        Assert.Equal(MaintenanceStatus.Closed, confirm.Data!.Status);
+
+        // BRULE-MNT-004: a closed request cannot transition to any other state.
+        var reopen = await service.UpdateStatusAsync(_techUserId, new[] { AppRoles.Technician }, requestId,
+            new UpdateMaintenanceStatusRequest { Status = MaintenanceStatus.InProgress });
+        Assert.False(reopen.Succeeded);
+
+        var reassign = await service.AssignAsync(_managerUserId, new[] { AppRoles.PropertyManager }, requestId,
+            new AssignMaintenanceRequest { TechnicianUserId = _techUserId });
+        Assert.False(reassign.Succeeded);
+    }
+
+    [Fact]
+    public async Task StatusChange_PersistsResidentNotification()
+    {
+        var (service, unitId, _, notifier) = await Arrange();
+
+        var submit = await service.SubmitAsync(_residentUserId, new[] { AppRoles.Resident },
+            new CreateMaintenanceRequestRequest { Title = "Leak", UnitId = unitId, Priority = MaintenancePriority.Medium });
+        Assert.True(submit.Succeeded);
+
+        var requestId = submit.Data!.Id;
+        await service.AssignAsync(_managerUserId, new[] { AppRoles.PropertyManager }, requestId,
+            new AssignMaintenanceRequest { TechnicianUserId = _techUserId });
+
+        // The assignment and subsequent status changes must notify the resident
+        // through the persisted notification service (FR-MNT-005).
+        Assert.NotEmpty(notifier.Sent);
+        Assert.Contains(notifier.Sent, n => n.UserId == _residentUserId);
+    }
 }

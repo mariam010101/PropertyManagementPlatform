@@ -31,7 +31,9 @@ public class AutoCloseHostedService : BackgroundService
         {
             try
             {
-                await CloseExpiredAsync(stoppingToken);
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<MaintenanceDbContext>();
+                await CloseExpiredAsync(db, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -42,11 +44,8 @@ public class AutoCloseHostedService : BackgroundService
         }
     }
 
-    private async Task CloseExpiredAsync(CancellationToken cancellationToken)
+    internal async Task CloseExpiredAsync(MaintenanceDbContext db, CancellationToken cancellationToken)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MaintenanceDbContext>();
-
         var cutoff = DateTimeOffset.UtcNow.Subtract(GracePeriod);
 
         // SQLite stores DateTimeOffset as TEXT and cannot translate DateTimeOffset
