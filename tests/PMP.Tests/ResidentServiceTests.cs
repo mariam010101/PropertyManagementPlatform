@@ -212,6 +212,68 @@ public class ResidentServiceTests
         Assert.Contains("not found", result.Error);
     }
 
+    [Fact]
+    public async Task GetResidentsAsync_WithSearch_FiltersByNameOrEmail()
+    {
+        var ctx = await ArrangeAsync(alreadyOccupiesUnit: true);
+
+        var second = new ResidentProfile
+        {
+            UserId = Guid.NewGuid(),
+            Email = "bob@pmp.test",
+            FirstName = "Bob",
+            LastName = "Builder",
+            IsActive = true,
+        };
+        ctx.ResidentDb.ResidentProfiles.Add(second);
+        ctx.ResidentDb.ResidentUnits.Add(new ResidentUnit
+        {
+            ResidentProfileId = second.Id,
+            UnitId = ctx.Unit.Id,
+            MoveInDate = DateTimeOffset.UtcNow,
+        });
+        await ctx.ResidentDb.SaveChangesAsync();
+
+        var byName = await ctx.Service.GetResidentsAsync(_managerId, [AppRoles.PropertyManager], "rita", null);
+        var byEmail = await ctx.Service.GetResidentsAsync(_managerId, [AppRoles.PropertyManager], "bob@", null);
+
+        var nameMatch = Assert.Single(byName);
+        Assert.Equal("Rita", nameMatch.FirstName);
+
+        var emailMatch = Assert.Single(byEmail);
+        Assert.Equal("Bob", emailMatch.FirstName);
+    }
+
+    [Fact]
+    public async Task UpdateResidentAsync_UpdatesProfileFields()
+    {
+        var ctx = await ArrangeAsync(alreadyOccupiesUnit: true);
+
+        var result = await ctx.Service.UpdateResidentAsync(_managerId, [AppRoles.PropertyManager], ctx.Profile.Id,
+            new UpdateResidentProfileRequest { FirstName = "Rita2", LastName = "Smith", PhoneNumber = "555-999" });
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal("Rita2", result.Data!.FirstName);
+        Assert.Equal("Smith", result.Data.LastName);
+        Assert.Equal("555-999", result.Data.PhoneNumber);
+
+        var stored = await ctx.ResidentDb.ResidentProfiles.SingleAsync();
+        Assert.Equal("Rita2", stored.FirstName);
+        Assert.Equal("Smith", stored.LastName);
+    }
+
+    [Fact]
+    public async Task UpdateResidentAsync_WhenManagerDoesNotManageTheResident_IsRejected()
+    {
+        var ctx = await ArrangeAsync(alreadyOccupiesUnit: true);
+
+        var result = await ctx.Service.UpdateResidentAsync(_otherManagerId, [AppRoles.PropertyManager], ctx.Profile.Id,
+            new UpdateResidentProfileRequest { FirstName = "X", LastName = "Y" });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("do not have access", result.Error);
+    }
+
     private sealed record ResidentArrange(
         ResidentService Service,
         ResidentDbContext ResidentDb,
