@@ -1,18 +1,18 @@
 # PMP Implementation Progress
 
-Overall: 77%
-MVP: 89%
+Overall: 81%
+MVP: 100%
 
-Completed: 8
+Completed: 15
 Verified: 2
-In Progress: 11
-Not Started: 7
+In Progress: 5
+Not Started: 6
 Blocked: 1
 Gaps: 1
 
-Last Updated: 2026-09-15
+Last Updated: 2026-09-16
 
-Next Recommended Task: IMP-041
+Next Recommended Task: IMP-026
 
 ---
 
@@ -37,8 +37,8 @@ open item; Gap status = `IMP-033`). Separately,
 
 Completion % is **not** derived from file/endpoint/document counts. It is derived from verification state:
 `100%` = implemented + acceptance criteria met + tests pass + integration complete + ADR/REQ compliant.
-The only task so far that reaches that bar is `IMP-006`; every other task still carries at least one open
-acceptance criterion and is therefore reported below 100%.
+As of 2026-09-16 the full MVP slice (IMP-001..IMP-007) reaches that bar; the remaining below-100% tasks are
+post-MVP or deliberately blocked/deferred.
 
 ## 1. Verified baseline (evidence captured 2026-09-11; IMP-040 re-run)
 
@@ -65,12 +65,11 @@ acceptance criterion and is therefore reported below 100%.
 
 **Documented state** (compliance audit, ADR-0012): 71/78 FRs MET, 3 PARTIAL (FR-AUTH-005, FR-RBAC-006,
 FR-COM-006), 5 NOT MET (BR-012); BR-001..BR-011 have working modules.
-**Actual state**: the MVP slice is verified end-to-end over HTTP by the API integration suite (IMP-006), and
-every module now has service-level tests for its core rules (IMP-040): Auth (token contents/signature),
-Property, Resident, Maintenance, Payment, Lease, Communication, Booking and Security. Still untested: the
-hosted background jobs (maintenance auto-close, lease expiry, payment due dates) and the attachment upload
-paths (`GAP-001`); there is **no CI**, **no frontend test runner**, and the BR-012 mobile platform does not
-exist. Progress therefore reflects verified implementation, not breadth.
+**Actual state**: the MVP slice is verified end-to-end over HTTP by the API integration suite (IMP-006) and
+is now **100% COMPLETE** (IMP-001..IMP-007 all verified, 2026-09-16); every module has service-level tests for
+its core rules (IMP-040) and the frontend has route/page tests (IMP-041). Still untested: the lease-expiry and
+payment due-date background sweeps and the attachment upload paths (`GAP-001`); there is **no CI**, and the
+BR-012 mobile platform does not exist. Progress therefore reflects verified implementation, not breadth.
 
 ### Documented-state vs actual-code conflicts (recorded, not silently resolved)
 
@@ -100,7 +99,7 @@ Each task carries an effort weight. Completion = Σ(weight × verified %) across
 | Property (BR-003) | IMP-003 | 100% | — |
 | Resident (BR-002) | IMP-004 | 100% | — |
 | Maintenance (BR-004) | IMP-005 | 100% | — |
-| Payment + Accounting (BR-005, BR-011) | IMP-020, IMP-021 | 90% | real payment-provider integration (GAP-012); no frontend tests (IMP-041) |
+| Payment + Accounting (BR-005, BR-011) | IMP-020, IMP-021 | 90% | real payment-provider integration (GAP-012) |
 | Lease (BR-006) | IMP-022 | 70% | BRULE-LEASE-001 invariant (IMP-033), document-storage hardening; core rules now tested |
 | Communication (BR-007) | IMP-023 | 70% | no email transport (GAP-005); core rules now tested |
 | Booking (BR-009) | IMP-024 | 70% | no BRULE page published (GAP-011); core rules now tested |

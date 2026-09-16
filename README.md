@@ -524,9 +524,9 @@ Honest status, derived from verified state — not from file or endpoint counts.
 - Real payment-provider integration, email transport, and access-control hardware integration are out of scope
   until instructed.
 
-> **Verified progress:** overall **73%**, MVP **89%** (defined by the auditable weighting in
-> [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)). The gap register holds **24** items
-> (`GAP-001…GAP-024`).
+> **Verified progress:** overall **81%**, MVP **100%** (defined by the auditable weighting in
+> [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)). The gap register holds **26** items
+> (`GAP-001…GAP-026`).
 
 ---
 

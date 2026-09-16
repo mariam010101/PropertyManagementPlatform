@@ -12,7 +12,7 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 
 | GAP | Title | Module | REQ / ADR | Priority | Related task | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| GAP-001 | Automated test coverage improved but still incomplete: 101 tests after IMP-040 and every module now has service-level tests; no background-job/attachment tests, no frontend tests | Cross-module | all FR sets; ADR-0005 | P1 | IMP-040 (done), IMP-041 | IN_PROGRESS |
+| GAP-001 | Automated test coverage improved but still incomplete: MVP auto-close + frontend tests now present; remaining gaps are the lease-expiry/payment due-date sweeps, attachment upload and the reopen path | Cross-module | all FR sets; ADR-0005 | P1 | IMP-040 (done), IMP-041 (done) | IN_PROGRESS |
 | GAP-002 | Mobile platform access not implemented (no native app or PWA; responsive web only) | Mobile | FR-MOBILE-001..005; ADR-0007, ADR-0012 | P2 | IMP-027 | NOT_STARTED (deferred) |
 | GAP-003 | Role revocation does not apply to already-issued 15-minute JWTs | Auth | FR-RBAC-006, BRULE-RBAC-006; ADR-0003/0004 | P1 | IMP-031 | RESOLVED |
 | GAP-004 | No dedicated owner "edit my profile" endpoint that mutates Identity name fields | Auth | FR-AUTH-005, BRULE-AUTH-006 | P1 | IMP-030 | RESOLVED |
@@ -43,7 +43,7 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
 
 ## Gap detail
 
-### GAP-001 — Automated test coverage incomplete (background jobs, attachments, frontend)
+### GAP-001 — Automated test coverage incomplete (remaining sweeps, attachments, reopen path)
 - **Affected module:** cross-module (the three hosted jobs; attachment upload paths; frontend).
 - **Related requirement/ADR:** all FR sets; ADR-0005 (service `Result` pattern makes service-level testing the intended seam).
 - **Current state:** `IMP-006` (2026-09-10) added 12 API integration tests, `IMP-020`/`IMP-021` added Payment
@@ -51,10 +51,11 @@ Status uses the plan vocabulary (`GAP`, `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`,
   (`AuthTokenServiceTests`, `ResidentServiceTests`, `LeaseServiceTests`, `CommunicationServiceTests`,
   `BookingServiceTests`, `SecurityServiceTests`) plus shared test doubles. The suite is now **101 passed /
   0 failed** (14 test files) and the TDD workflow is documented in [`docs/TESTING.md`](docs/TESTING.md).
-  **Still uncovered:** the maintenance 7-day auto-close job, the lease-expiry and payment due-date background
-  sweeps, attachment upload, the 7-day maintenance reopen path, and all frontend behaviour.
-- **What remains:** add tests for the three hosted services and the attachment paths (reusing the
-  [`TestDoubles.cs`](tests/PMP.Tests/TestDoubles.cs) pattern), and stand up frontend testing (`IMP-041`).
+  **Now covered (2026-09-16):** the maintenance 7-day auto-close job, lockout/RBAC-matrix/duplicate-unit
+  coverage, and frontend route/page tests (`IMP-041`). **Still uncovered:** the lease-expiry and payment
+  due-date background sweeps, attachment upload, and the 7-day maintenance reopen path.
+- **What remains:** add tests for the two remaining hosted services and the attachment paths (reusing the
+  [`TestDoubles.cs`](tests/PMP.Tests/TestDoubles.cs) pattern).
 - **Priority:** P1.
 - **Related tasks:** `IMP-040` (per-module expansion — done), `IMP-041` (frontend), `IMP-042` (CI).
 
